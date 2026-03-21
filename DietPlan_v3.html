@@ -1,0 +1,794 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Diet//Plan</title>
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Mono:wght@400;500&family=Syne:wght@400;600;700&display=swap" rel="stylesheet">
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{--bg:#f4f1eb;--surface:#fff;--text:#0c0c0c;--muted:#8a8a8a;--muted2:#555;--border:#0c0c0c;--divider:#d8d4cc;--accent:#f0c030;--red:#e03030;--green:#1a9c4a;--blue:#1a5fb4;--display:'Bebas Neue',cursive;--mono:'DM Mono',monospace;--sans:'Syne',sans-serif}
+body{background:var(--bg);color:var(--text);font-family:var(--sans);font-size:14px;line-height:1.5;min-height:100vh}
+#toast{position:fixed;bottom:28px;right:28px;background:var(--text);color:var(--bg);font-family:var(--mono);font-size:11px;font-weight:500;letter-spacing:.06em;padding:11px 18px;border-left:4px solid var(--accent);opacity:0;transform:translateY(6px);transition:opacity .22s,transform .22s;pointer-events:none;z-index:9999}
+#toast.show{opacity:1;transform:translateY(0)}
+.app{max-width:980px;margin:0 auto}
+.header{background:var(--text);color:var(--bg);padding:20px 36px;display:flex;align-items:center;justify-content:space-between}
+.header h1{font-family:var(--display);font-size:56px;letter-spacing:.02em;line-height:1}
+.header h1 .slash{color:var(--accent)}
+.header-meta{text-align:right}
+.plan-badge{display:inline-block;background:var(--accent);color:var(--text);font-family:var(--mono);font-size:9px;font-weight:500;letter-spacing:.14em;text-transform:uppercase;padding:3px 10px;margin-bottom:4px}
+.header-week{display:block;font-family:var(--mono);font-size:10px;color:rgba(244,241,235,.4);letter-spacing:.06em}
+.content{padding:0 36px 70px}
+.error-box{display:none;padding:12px 16px;border:2px solid var(--red);background:rgba(224,48,48,.04);margin-top:24px;font-family:var(--mono);font-size:11px;color:var(--red);line-height:1.7}
+.error-box.show{display:block}
+.warn-box{display:none;padding:11px 15px;border:2px solid var(--accent);background:rgba(240,192,48,.07);margin-bottom:10px;font-family:var(--mono);font-size:11px;color:#7a5e00;line-height:1.7}
+.warn-box.show{display:block}
+.wb-title{font-weight:500;letter-spacing:.1em;text-transform:uppercase;font-size:9px;display:block;margin-bottom:3px}
+.section{border-bottom:2px solid var(--text)}
+.section:first-of-type{border-top:2px solid var(--text);margin-top:32px}
+.section-header{display:flex;align-items:center;justify-content:space-between;padding:16px 0;cursor:pointer;user-select:none}
+.section-left{display:flex;align-items:center}
+.s-num{font-family:var(--display);font-size:48px;line-height:1;margin-right:20px;min-width:52px;opacity:.1;transition:opacity .18s}
+.section.open .s-num{opacity:1}
+.s-title{font-family:var(--display);font-size:22px;letter-spacing:.06em;line-height:1}
+.s-sub{font-family:var(--mono);font-size:10px;color:var(--muted);margin-top:3px;letter-spacing:.04em}
+.section-right{display:flex;align-items:center;gap:14px}
+.pill{font-family:var(--mono);font-size:9px;font-weight:500;letter-spacing:.14em;text-transform:uppercase;padding:4px 10px;border:2px solid var(--text);white-space:nowrap}
+.pill.ok{background:var(--text);color:var(--bg)}
+.pill.warn{background:var(--accent);color:var(--text);border-color:var(--accent)}
+.pill.idle{color:var(--muted);border-color:var(--divider)}
+.tbtn{width:30px;height:30px;border:2px solid var(--text);display:flex;align-items:center;justify-content:center;font-size:20px;font-weight:300;line-height:1;cursor:pointer;transition:all .14s;background:transparent;color:var(--text);flex-shrink:0}
+.section.open .tbtn{background:var(--text);color:var(--bg)}
+.section-body{display:none;padding-bottom:30px}
+.section.open .section-body{display:block}
+.gl{font-family:var(--mono);font-size:9px;font-weight:500;letter-spacing:.2em;text-transform:uppercase;color:var(--muted);padding:6px 0 10px;margin-top:22px;border-bottom:1px solid var(--divider);margin-bottom:10px}
+.fg{display:grid;border:2px solid var(--text);margin-bottom:10px}
+.fg.g2{grid-template-columns:1fr 1fr}
+.fg.g3{grid-template-columns:repeat(3,1fr)}
+.fg.g4{grid-template-columns:repeat(4,1fr)}
+.fg.g7{grid-template-columns:repeat(7,1fr)}
+.f{border-right:2px solid var(--text);padding:10px 14px;display:flex;flex-direction:column;gap:5px}
+.f:last-child{border-right:none}
+.f>label{font-family:var(--mono);font-size:9px;font-weight:500;letter-spacing:.16em;text-transform:uppercase;color:var(--muted)}
+.f>label .req{color:var(--red)}
+.f input,.f select{background:transparent;border:none;border-bottom:1px solid var(--divider);padding:5px 0;font-family:var(--mono);font-size:15px;color:var(--text);outline:none;width:100%;transition:border-color .14s}
+.f input:focus,.f select:focus{border-bottom-color:var(--text)}
+.f .hint{font-family:var(--mono);font-size:9px;color:var(--muted);line-height:1.5}
+.f .ferr{font-family:var(--mono);font-size:9px;color:var(--red);margin-top:1px}
+.slider-block{border:2px solid var(--text);padding:14px 16px;margin-bottom:10px}
+.sb-top{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:10px}
+.sb-label{font-family:var(--mono);font-size:9px;font-weight:500;letter-spacing:.16em;text-transform:uppercase;color:var(--muted)}
+.sb-val{font-family:var(--mono);font-size:14px;font-weight:500}
+input[type="range"]{-webkit-appearance:none;width:100%;height:4px;background:var(--text);outline:none;border-radius:0}
+input[type="range"]::-webkit-slider-thumb{-webkit-appearance:none;width:16px;height:22px;background:var(--accent);cursor:pointer;border:2px solid var(--text);border-radius:0}
+.rec-row{display:none;border:2px solid var(--text);padding:12px 16px;margin-bottom:10px;align-items:center;justify-content:space-between;gap:20px}
+.rec-row.visible{display:flex}
+.rec-label{font-family:var(--mono);font-size:9px;font-weight:500;letter-spacing:.16em;text-transform:uppercase;color:var(--muted);margin-bottom:4px}
+.rec-val{font-family:var(--display);font-size:24px;letter-spacing:.05em}
+.rec-val.cut{color:var(--red)}.rec-val.bulk{color:var(--blue)}.rec-val.reverse{color:var(--green)}
+.rec-note{font-family:var(--mono);font-size:10px;color:var(--muted2);line-height:1.5;max-width:360px;text-align:right}
+details.help{margin-bottom:10px}
+details.help summary{font-family:var(--mono);font-size:10px;color:var(--muted);cursor:pointer;user-select:none;letter-spacing:.04em;display:flex;align-items:center;gap:7px;list-style:none}
+details.help summary::before{content:'?';display:inline-flex;align-items:center;justify-content:center;width:15px;height:15px;border:1px solid var(--muted);font-size:9px;font-weight:700;flex-shrink:0}
+details.help[open] summary::before{background:var(--text);color:var(--bg);border-color:var(--text)}
+.help-body{margin-top:8px;padding:12px 14px;background:#ede9e0;border-left:3px solid var(--text);font-family:var(--mono);font-size:11px;color:var(--muted2);line-height:1.7}
+.help-body strong{color:var(--text)}
+.help-body table{border-collapse:collapse;width:100%;margin-top:8px;font-size:10px}
+.help-body th{background:var(--text);color:var(--bg);padding:4px 8px;text-align:left}
+.help-body td{border:1px solid #c8c4bc;padding:4px 8px}
+.btn-row{display:flex;gap:0;margin-top:14px;flex-wrap:wrap}
+.btn{padding:11px 22px;font-family:var(--mono);font-size:10px;font-weight:500;letter-spacing:.12em;text-transform:uppercase;cursor:pointer;border:2px solid var(--text);outline:none;transition:background .13s,color .13s;margin-right:-2px;margin-bottom:-2px}
+.btn-primary{background:var(--text);color:var(--bg)}.btn-primary:hover{background:#2a2a2a}
+.btn-ghost{background:transparent;color:var(--text)}.btn-ghost:hover{background:var(--accent)}
+.btn-danger{background:transparent;color:var(--red);border-color:var(--red)}.btn-danger:hover{background:var(--red);color:#fff}
+.btn-accent{background:var(--accent);color:var(--text);border-color:var(--accent)}.btn-accent:hover{background:#d4a820;border-color:#d4a820}
+.stats{display:grid;border:2px solid var(--text)}
+.stats.g2{grid-template-columns:1fr 1fr}.stats.g3{grid-template-columns:repeat(3,1fr)}.stats.g4{grid-template-columns:repeat(4,1fr)}
+.sc{padding:18px 20px;border-right:2px solid var(--text);border-bottom:2px solid var(--text)}
+.sc:last-child{border-right:none}
+.sc.feat{background:var(--text)}
+.sc.feat .sc-label{color:rgba(244,241,235,.35)}.sc.feat .sc-val{color:var(--accent)}.sc.feat .sc-note{color:rgba(244,241,235,.35)}
+.sc-label{font-family:var(--mono);font-size:9px;font-weight:500;letter-spacing:.18em;text-transform:uppercase;color:var(--muted);margin-bottom:6px}
+.sc-val{font-family:var(--display);font-size:44px;line-height:1}
+.sc-val .unit{font-size:16px;margin-left:2px}
+.sc-note{font-family:var(--mono);font-size:10px;color:var(--muted);margin-top:4px}
+.mbar{height:4px;margin-bottom:10px}.mbar-p{background:var(--green)}.mbar-c{background:var(--accent)}.mbar-f{background:var(--red)}
+.kcal-row{display:grid;grid-template-columns:1fr 1fr;border:2px solid var(--text);margin-bottom:10px}
+.kb{padding:14px 16px;border-right:2px solid var(--text)}.kb:last-child{border-right:none}
+.kb-label{font-family:var(--mono);font-size:9px;font-weight:500;letter-spacing:.16em;text-transform:uppercase;color:var(--muted);margin-bottom:6px}
+.kb-val{font-family:var(--display);font-size:32px;line-height:1}
+.kb-sub{font-family:var(--mono);font-size:9px;color:var(--muted);margin-top:3px}
+.prog-bar-wrap{border:2px solid var(--text);margin-bottom:10px;display:none}
+.prog-bar-top{display:flex;justify-content:space-between;align-items:center;padding:8px 14px;border-bottom:2px solid var(--text)}
+.pb-label{font-family:var(--mono);font-size:9px;font-weight:500;letter-spacing:.16em;text-transform:uppercase;color:var(--muted)}
+.pb-val{font-family:var(--mono);font-size:11px;font-weight:500}
+.prog-bar-inner{padding:10px 14px;display:flex;align-items:center;gap:12px}
+.pb-track{flex:1;height:6px;background:var(--divider);position:relative}
+.pb-fill{height:100%;background:var(--green);transition:width .4s}
+.pb-note{font-family:var(--mono);font-size:10px;color:var(--muted2);min-width:120px;text-align:right}
+.prev-ref{border:2px solid var(--divider);margin-bottom:10px;padding:12px 14px;display:none}
+.prev-ref-title{font-family:var(--mono);font-size:9px;font-weight:500;letter-spacing:.16em;text-transform:uppercase;color:var(--muted);margin-bottom:8px}
+.prev-ref-grid{display:grid;grid-template-columns:repeat(4,1fr)}
+.prc{border-right:1px solid var(--divider);padding:6px 12px}.prc:last-child{border-right:none}
+.prc-label{font-family:var(--mono);font-size:9px;color:var(--muted);margin-bottom:2px}
+.prc-val{font-family:var(--mono);font-size:13px;font-weight:500;color:var(--muted2)}
+.lbm-note{font-family:var(--mono);font-size:10px;color:var(--muted);padding:8px 0 12px;border-bottom:1px solid var(--divider);margin-bottom:12px}
+.day-meta{font-family:var(--mono);font-size:10px;color:var(--muted);margin-bottom:10px;display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+#end-reverse-ready{display:none;margin-top:14px;background:rgba(26,156,74,.06);border:2px solid var(--green);padding:14px 18px}
+.er-title{font-family:var(--display);font-size:20px;letter-spacing:.05em;color:var(--green);margin-bottom:4px}
+.er-text{font-family:var(--mono);font-size:11px;color:var(--muted2);line-height:1.6}
+#weekly-suggestion{display:none;margin-top:16px;border:2px solid var(--text)}
+.sug-head{padding:14px 18px;background:var(--text);color:var(--bg);display:flex;align-items:center;gap:14px}
+.sug-badge{font-family:var(--mono);font-size:9px;font-weight:500;letter-spacing:.14em;text-transform:uppercase;padding:3px 9px;border:1px solid}
+.sug-title{font-family:var(--display);font-size:24px;letter-spacing:.04em}
+.sug-kcal{font-family:var(--display);font-size:36px;letter-spacing:.02em;color:var(--accent);margin-left:auto}
+.sug-body{padding:16px 18px}
+.sug-g{display:grid;grid-template-columns:1fr 1fr;border:1px solid var(--divider);margin-bottom:12px}
+.sug-row{padding:8px 12px;border-right:1px solid var(--divider);border-bottom:1px solid var(--divider)}
+.sug-row:nth-child(even){border-right:none}.sug-row:nth-last-child(-n+2){border-bottom:none}
+.sr-label{font-family:var(--mono);font-size:9px;font-weight:500;letter-spacing:.12em;text-transform:uppercase;color:var(--muted)}
+.sr-val{font-family:var(--mono);font-size:13px;color:var(--text);margin-top:2px}
+.sug-note{font-family:var(--mono);font-size:11px;color:var(--muted2);line-height:1.65;margin-bottom:14px}
+.sug-opts{display:grid;grid-template-columns:1fr 1fr;border:1px solid var(--divider);margin-bottom:14px}
+.sug-opt{padding:14px;border-right:1px solid var(--divider)}.sug-opt:last-child{border-right:none}
+.so-title{font-family:var(--mono);font-size:9px;font-weight:500;letter-spacing:.12em;text-transform:uppercase;color:var(--text);margin-bottom:5px}
+.so-kcal{font-family:var(--display);font-size:26px}
+.so-note{font-family:var(--mono);font-size:10px;color:var(--muted);margin-top:4px;line-height:1.5}
+.lvl-label{font-family:var(--mono);font-size:9px;font-weight:500;letter-spacing:.16em;text-transform:uppercase;color:var(--muted);margin-bottom:6px;margin-top:14px}
+.lvl-grid{display:grid;grid-template-columns:repeat(3,1fr);border:1px solid var(--divider);margin-bottom:14px}
+.lvl-item{padding:10px 12px;border-right:1px solid var(--divider)}.lvl-item:last-child{border-right:none}
+.lvl-item.active{background:var(--text)}
+.li-label{font-family:var(--mono);font-size:9px;font-weight:500;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin-bottom:4px}
+.lvl-item.active .li-label{color:rgba(244,241,235,.4)}.lvl-item.active .li-range{color:var(--accent)}
+.li-range{font-family:var(--mono);font-size:13px}
+.accept-bar{background:#ede9e0;border-top:2px solid var(--text);padding:14px 18px;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.accept-note{font-family:var(--mono);font-size:10px;color:var(--muted2);flex:1}
+.diff-pos{color:var(--red)}.diff-neg{color:var(--green)}.diff-neu{color:var(--muted)}
+.st{width:100%;border-collapse:collapse;border:2px solid var(--text);margin-bottom:14px;font-family:var(--mono)}
+.st th{background:var(--text);color:var(--bg);font-size:9px;font-weight:500;letter-spacing:.14em;text-transform:uppercase;padding:8px 12px;text-align:left;border-right:1px solid rgba(244,241,235,.15)}
+.st th:last-child{border-right:none}
+.st td{padding:8px 12px;font-size:12px;border-right:1px solid var(--divider);border-bottom:1px solid var(--divider)}
+.st td:last-child{border-right:none}.st tr:last-child td{border-bottom:none}
+.st .lb{font-size:9px;font-weight:500;letter-spacing:.1em;text-transform:uppercase;padding:4px 10px;background:transparent;border:1px solid var(--text);cursor:pointer}
+.st .lb:hover{background:var(--accent)}
+.delta-up{color:var(--red);font-size:9px}.delta-dn{color:var(--green);font-size:9px}
+.chart-wrap{border:2px solid var(--text);border-bottom:none;padding:16px;background:var(--surface)}
+.chart-title{font-family:var(--mono);font-size:9px;font-weight:500;letter-spacing:.16em;text-transform:uppercase;color:var(--muted);margin-bottom:12px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px}
+#prog-chart{display:block;width:100%}
+#chart-empty{display:none;font-family:var(--mono);font-size:11px;color:var(--muted);padding:24px 0;text-align:center}
+@media(max-width:680px){
+.content{padding:0 16px 50px}.header{padding:16px}.header h1{font-size:38px}
+.fg.g4{grid-template-columns:repeat(2,1fr)}.fg.g7{grid-template-columns:repeat(4,1fr)}
+.stats.g3,.stats.g4{grid-template-columns:1fr 1fr}.sug-g,.sug-opts{grid-template-columns:1fr}
+.sug-row{border-right:none}.kcal-row{grid-template-columns:1fr}
+.kb{border-right:none;border-bottom:2px solid var(--text)}.kb:last-child{border-bottom:none}
+.prev-ref-grid{grid-template-columns:1fr 1fr}.lvl-grid{grid-template-columns:1fr}
+}
+</style>
+</head>
+<body>
+<div class="app">
+<div id="toast"></div>
+<header class="header">
+  <h1>DIET<span class="slash">//</span>PLAN</h1>
+  <div class="header-meta">
+    <span class="plan-badge" id="hdr-approach">—</span>
+    <span class="header-week" id="hdr-week">—</span>
+  </div>
+</header>
+<div class="content">
+<div id="input-errors" class="error-box"></div>
+<div id="plausibility-warn" class="warn-box"><span class="wb-title">⚠ Attenzione — valori da verificare</span><span id="plaus-text"></span></div>
+
+<!-- 01 INPUT -->
+<div class="section open" id="sec-input">
+  <div class="section-header" onclick="toggleSec('sec-input')">
+    <div class="section-left"><span class="s-num">01</span><div><div class="s-title">INPUT DATI</div><div class="s-sub">Parametri fisici e configurazione</div></div></div>
+    <div class="section-right"><span class="pill idle" id="pill-input">da compilare</span><div class="tbtn" id="tbtn-input">−</div></div>
+  </div>
+  <div class="section-body">
+    <div class="gl">Parametri fisici</div>
+    <div class="fg g4">
+      <div class="f"><label>Sesso <span class="req">*</span></label><select id="sex"><option value="">—</option><option value="male" selected>Maschio</option><option value="female">Femmina</option></select></div>
+      <div class="f"><label>Età <span class="req">*</span></label><input type="number" id="age" value="37" min="10" max="100"></div>
+      <div class="f"><label>Altezza cm <span class="req">*</span></label><input type="number" id="height" value="168" min="100" max="250"></div>
+      <div class="f"><label>Peso kg <span class="req">*</span></label><input type="number" id="weight" step="0.1" placeholder="78.5"></div>
+    </div>
+    <div class="fg g2">
+      <div class="f"><label>Body Fat % <span class="req">*</span></label><input type="number" id="bodyFat" step="0.1" placeholder="15.0" min="2" max="65"><span class="hint">Obbligatorio per LBM e macros. Range: 2–65%.</span></div>
+      <div class="f"><label>Obiettivo</label><select id="goal"><option value="">— seleziona —</option><option value="massa">Aumentare massa</option><option value="dimagrire">Dimagrire</option><option value="skinny_fat">Skinny Fat</option></select></div>
+    </div>
+    <div class="rec-row" id="rec-row"><div><div class="rec-label">Approccio consigliato</div><div class="rec-val" id="rec-val">—</div></div><div class="rec-note" id="rec-note"></div></div>
+    <div class="gl">Misure baseline (opzionale)</div>
+    <div class="fg g3">
+      <div class="f"><label>Vita cm</label><input type="number" id="measureWaist" step="0.1" placeholder="—"></div>
+      <div class="f"><label>Fianchi cm</label><input type="number" id="measureHips" step="0.1" placeholder="—"></div>
+      <div class="f"><label>Braccio cm</label><input type="number" id="measureArm" step="0.1" placeholder="—"></div>
+    </div>
+    <div class="gl">Configurazione</div>
+    <div class="fg g4">
+      <div class="f"><label>Lifestyle Factor</label><select id="lifestyleFactor"><option value="0.6">0.60 Sedentario</option><option value="0.7" selected>0.70 Light</option><option value="0.8">0.80 Moderate</option><option value="0.9">0.90 High</option><option value="1.0">1.00 Extreme</option></select></div>
+      <div class="f"><label>Exercise Factor</label><select id="exerciseFactor"><option value="0.55">0.55 Sedentario</option><option value="0.65">0.65 Light</option><option value="0.75" selected>0.75 Moderate</option><option value="0.85">0.85 Intense</option><option value="0.95">0.95 Extreme</option></select></div>
+      <div class="f"><label>Approccio</label><select id="approachKey"><option value="conservative" selected>Conservativo</option><option value="moderate">Moderato</option><option value="aggressive">Aggressivo</option></select></div>
+      <div class="f"><label>Metodo TDEE</label><select id="tdeeMethod"><option value="media" selected>Media (A+M)</option><option value="muller">Müller</option><option value="aragon">Aragon</option></select></div>
+    </div>
+    <details class="help"><summary>Lifestyle / Exercise Factor — guida</summary><div class="help-body">
+      <strong>Lifestyle</strong> — NEAT quotidiano: 0.60 scrivania · 0.70 un po' in piedi · 0.80 spesso in piedi · 0.90 quasi sempre · 1.00 lavoro manuale.<br><br>
+      <strong>Exercise</strong> — allenamenti: 0.55 nessuno · 0.65 cardio leggero · 0.75 pesi+cardio · 0.85 intenso ≥5gg · 0.95 doppio.<br><br>
+      <strong>TDEE = BMR × (Lifestyle + Exercise)</strong>. Somma dei due fattori: più preciso di un singolo moltiplicatore.
+    </div></details>
+    <details class="help"><summary>Conservativo / Moderato / Aggressivo — differenze (dalla guida, sez.5)</summary><div class="help-body">
+      <strong>Conservativo</strong> — parte dal mantenimento (offset 0%), aumenta +1–3% kcal/sett., guadagno ≤0.2% peso/sett. Per chi vuole minimizzare l'accumulo di grasso.<br><br>
+      <strong>Moderato</strong> — parte da +10% sopra mantenimento, +3–6%/sett., guadagno ≤0.5%/sett. Buon compromesso velocità/composizione.<br><br>
+      <strong>Aggressivo</strong> — parte da +20%, +6–9%/sett., guadagno ≤0.8%/sett. Per atleti a BF basso che devono recuperare il metabolismo rapidamente.
+    </div></details>
+    <div class="fg g2">
+      <div class="f"><label>Proteine g/kg LBM</label><input type="number" step="0.1" id="proteinPerKgLBM" value="2.2" min="1" max="4"><span class="hint">Ottimale 1.8–3.2 g/kg LBM (guida, sez.5). Default 2.2.</span></div>
+      <div class="f"><label>Mantenimento misurato kcal (opzionale)</label><input type="number" id="measuredMaintenance" placeholder="—"><span class="hint">Se inserito, ha priorità sulle formule. Metodo più preciso: traccia 2–4 settimane.</span></div>
+    </div>
+    <div class="slider-block">
+      <div class="sb-top"><span class="sb-label">Ripartizione Carboidrati / Grassi</span><span class="sb-val">Carbs <span id="carb-pct">65</span>% · Grassi <span id="fat-pct">35</span>%</span></div>
+      <input type="range" min="0" max="1" step="0.01" id="carbPercentOfRemaining" value="0.65">
+    </div>
+    <div class="btn-row">
+      <button class="btn btn-primary" id="calc-plan">Calcola Piano →</button>
+      <button class="btn btn-ghost" id="reset-plan-btn">Reset Calorie Tracciate</button>
+    </div>
+  </div>
+</div>
+
+<!-- 02 PIANO ATTIVO -->
+<div class="section" id="sec-plan">
+  <div class="section-header" onclick="toggleSec('sec-plan')">
+    <div class="section-left"><span class="s-num">02</span><div><div class="s-title">PIANO ATTIVO</div><div class="s-sub">Calorie correnti · macronutrienti · progressione</div></div></div>
+    <div class="section-right"><span class="pill idle" id="pill-plan">calcola prima</span><div class="tbtn" id="tbtn-plan">+</div></div>
+  </div>
+  <div class="section-body">
+    <div class="prog-bar-wrap" id="prog-bar-wrap">
+      <div class="prog-bar-top"><span class="pb-label">Progressione verso prontezza fisica (TDEE×1.05)</span><span class="pb-val" id="pb-val-text">—</span></div>
+      <div class="prog-bar-inner"><div class="pb-track"><div class="pb-fill" id="pb-fill" style="width:0%"></div></div><span class="pb-note" id="pb-note">—</span></div>
+    </div>
+    <div class="stats g2">
+      <div class="sc"><div class="sc-label">TDEE stimato (formula)</div><div class="sc-val" id="display-maintenance">—<span class="unit">kcal</span></div><div class="sc-note">metodo: <span id="display-method">—</span></div><div style="font-family:var(--mono);font-size:10px;color:var(--muted);margin-top:3px" id="display-estimates"></div><div style="font-family:var(--mono);font-size:10px;color:var(--muted);margin-top:1px" id="display-af"></div></div>
+      <div class="sc feat"><div class="sc-label">Calorie Piano Attivo</div><div class="sc-val" id="display-startCalories">—<span class="unit">kcal</span></div><div class="sc-note">Approccio: <span id="display-approach-label">—</span></div><div class="sc-note" id="display-increase"></div></div>
+    </div>
+    <div class="stats g3">
+      <div class="sc"><div class="mbar mbar-p"></div><div class="sc-label">Proteine</div><div style="font-family:var(--display);font-size:40px;line-height:1" id="display-proteinGrams">—<span style="font-size:16px">g</span></div><div class="sc-note" id="display-proteinKcal">—</div></div>
+      <div class="sc"><div class="mbar mbar-c"></div><div class="sc-label">Carboidrati</div><div style="font-family:var(--display);font-size:40px;line-height:1" id="display-carbsGrams">—<span style="font-size:16px">g</span></div><div class="sc-note" id="display-carbsKcal">—</div></div>
+      <div class="sc"><div class="mbar mbar-f"></div><div class="sc-label">Grassi</div><div style="font-family:var(--display);font-size:40px;line-height:1" id="display-fatsGrams">—<span style="font-size:16px">g</span></div><div class="sc-note" id="display-fatsKcal">—</div></div>
+    </div>
+    <div class="lbm-note" id="display-lbm-note"></div>
+    <div class="gl">Misure baseline inserite</div>
+    <div class="stats g4">
+      <div class="sc"><div class="sc-label">Vita</div><div style="font-family:var(--mono);font-size:18px;font-weight:500"><span id="dp-waist">—</span> cm</div></div>
+      <div class="sc"><div class="sc-label">Fianchi</div><div style="font-family:var(--mono);font-size:18px;font-weight:500"><span id="dp-hips">—</span> cm</div></div>
+      <div class="sc"><div class="sc-label">Braccio</div><div style="font-family:var(--mono);font-size:18px;font-weight:500"><span id="dp-arm">—</span> cm</div></div>
+      <div class="sc"><div class="sc-label">BF%</div><div style="font-family:var(--mono);font-size:18px;font-weight:500"><span id="dp-bf">—</span>%</div></div>
+    </div>
+    <details class="help"><summary>Tabelle kcal/kg LBM per mantenimento (guida, sez.9)</summary><div class="help-body">
+      <strong>Fattore di Attività &lt; 1.5</strong>
+      <table><tr><th>Età</th><th>Sotto la norma</th><th>Normale</th><th>Sopra la norma</th></tr><tr><td>18–40</td><td>25–35 kcal/kg</td><td>35–45</td><td>45–55</td></tr><tr><td>40–60</td><td>22–32</td><td>32–42</td><td>42–52</td></tr></table><br>
+      <strong>Fattore di Attività ≥ 1.5</strong>
+      <table><tr><th>Età</th><th>Sotto la norma</th><th>Normale</th><th>Sopra la norma</th></tr><tr><td>18–40</td><td>28–38 kcal/kg</td><td>38–48</td><td>48–58</td></tr><tr><td>40–60</td><td>25–35</td><td>35–45</td><td>45–55</td></tr></table><br>
+      <strong id="ref-table-calc">—</strong>
+    </div></details>
+    <div class="btn-row">
+      <button class="btn btn-primary" id="go-to-check">Vai al Check →</button>
+      <button class="btn btn-ghost" id="back-to-input">← Modifica Input</button>
+      <button class="btn btn-ghost" id="save-plan">Salva</button>
+    </div>
+  </div>
+</div>
+
+<!-- 03 CHECK -->
+<div class="section" id="sec-check">
+  <div class="section-header" onclick="toggleSec('sec-check')">
+    <div class="section-left"><span class="s-num">03</span><div><div class="s-title">CHECK SETTIMANALE</div><div class="s-sub">Peso · misure · progressione calorie settimana per settimana</div></div></div>
+    <div class="section-right"><span class="pill warn" id="pill-check">in corso</span><div class="tbtn" id="tbtn-check">+</div></div>
+  </div>
+  <div class="section-body">
+    <div id="prev-week-ref" class="prev-ref">
+      <div class="prev-ref-title">Settimana precedente (da storico)</div>
+      <div class="prev-ref-grid">
+        <div class="prc"><div class="prc-label">Peso medio</div><div class="prc-val" id="prev-weight">—</div></div>
+        <div class="prc"><div class="prc-label">Calorie</div><div class="prc-val" id="prev-kcal">—</div></div>
+        <div class="prc"><div class="prc-label">BF%</div><div class="prc-val" id="prev-bf-val">—</div></div>
+        <div class="prc"><div class="prc-label">Vita cm</div><div class="prc-val" id="prev-waist-val">—</div></div>
+      </div>
+    </div>
+    <div class="gl">Peso giornaliero (calcola media automaticamente)</div>
+    <div class="fg g7">
+      <div class="f"><label>Lun</label><input type="number" step="0.1" id="day1" placeholder="—"></div>
+      <div class="f"><label>Mar</label><input type="number" step="0.1" id="day2" placeholder="—"></div>
+      <div class="f"><label>Mer</label><input type="number" step="0.1" id="day3" placeholder="—"></div>
+      <div class="f"><label>Gio</label><input type="number" step="0.1" id="day4" placeholder="—"></div>
+      <div class="f"><label>Ven</label><input type="number" step="0.1" id="day5" placeholder="—"></div>
+      <div class="f"><label>Sab</label><input type="number" step="0.1" id="day6" placeholder="—"></div>
+      <div class="f"><label>Dom</label><input type="number" step="0.1" id="day7" placeholder="—"></div>
+    </div>
+    <div class="day-meta"><span id="days-label">0/7 giorni</span><button class="btn btn-ghost" id="clear-days" style="padding:4px 12px;font-size:9px">Clear giorni</button></div>
+    <div class="fg g3">
+      <div class="f"><label>Media peso kg <span class="req">*</span></label><input type="number" step="0.01" id="weeklyAvgWeight" placeholder="78.20"><span class="ferr" id="weekly-error"></span></div>
+      <div class="f"><label>Body Fat % attuale</label><input type="number" step="0.1" id="checkBodyFat" placeholder="—"></div>
+      <div class="f"><label>Settimane sul piano</label><input type="number" id="weeksPassed" value="1" min="1"><span class="hint" id="weeks-hint">—</span></div>
+    </div>
+    <div class="kcal-row">
+      <div class="kb"><div class="kb-label">Calorie piano attivo</div><div class="kb-val" id="display-current-calories">—</div><div class="kb-sub">kcal</div></div>
+      <div class="kb"><div class="kb-label">Range obiettivo finale (TDEE×1.05 → ×1.10)</div><div class="kb-val" id="display-target-range">—</div><div class="kb-sub" id="display-target-method">—</div></div>
+    </div>
+    <div class="gl">Misure settimanali</div>
+    <div class="fg g3">
+      <div class="f"><label>Vita cm</label><input type="number" step="0.1" id="weeklyMeasureWaist" placeholder="—"></div>
+      <div class="f"><label>Fianchi cm</label><input type="number" step="0.1" id="weeklyMeasureHips" placeholder="—"></div>
+      <div class="f"><label>Braccio cm</label><input type="number" step="0.1" id="weeklyMeasureArm" placeholder="—"></div>
+    </div>
+    <div class="btn-row">
+      <button class="btn btn-primary" id="evaluate-check">Valuta e Suggerisci</button>
+      <button class="btn btn-ghost" id="save-check">Salva Dati</button>
+    </div>
+    <div id="end-reverse-ready"><div class="er-title">✓ PRONTEZZA FISICA — FINE REVERSE</div><div class="er-text" id="end-reverse-text"></div></div>
+    <div id="weekly-suggestion"></div>
+  </div>
+</div>
+
+<!-- 04 STORICO -->
+<div class="section" id="sec-storico">
+  <div class="section-header" onclick="toggleSec('sec-storico')">
+    <div class="section-left"><span class="s-num">04</span><div><div class="s-title">STORICO & PROGRESSIONE</div><div class="s-sub">Trend lineare · grafico peso/kcal · settimana per settimana</div></div></div>
+    <div class="section-right"><span class="pill idle" id="pill-storico">0 entries</span><div class="tbtn" id="tbtn-storico">+</div></div>
+  </div>
+  <div class="section-body">
+    <div class="chart-wrap">
+      <div class="chart-title"><span>Peso kg · Kcal piano · Trend lineare peso</span></div>
+      <canvas id="prog-chart" height="160"></canvas>
+      <div id="chart-empty">Nessun dato salvato ancora.</div>
+    </div>
+    <div id="storico-wrap">
+      <table class="st"><thead><tr><th>Data</th><th>Peso medio</th><th>Δ peso</th><th>Kcal piano</th><th>Δ kcal</th><th>Approccio</th><th>BF%</th><th>Sett.</th><th></th></tr></thead><tbody id="storico-body"></tbody></table>
+    </div>
+    <div class="btn-row">
+      <button class="btn btn-ghost" id="export-btn">Esporta JSON</button>
+      <button class="btn btn-danger" id="clear-storico">Cancella Storico</button>
+    </div>
+  </div>
+</div>
+
+</div></div>
+<script>
+// ── STATE ──────────────────────────────────────────────
+let sex='male',age=37,height=168,weight='',bodyFat='',goal='';
+let measuredMaintenance='',lifestyleFactor=0.7,exerciseFactor=0.75;
+let proteinPerKgLBM=2.2,carbPercentOfRemaining=0.65;
+let approachKey='conservative',tdeeMethod='media';
+let measureWaist='',measureHips='',measureArm='';
+let weeklyAvgWeight='',weeksPassed=1,checkBodyFat='';
+let weeklyMeasureWaist='',weeklyMeasureHips='',weeklyMeasureArm='';
+let dayWeights=['','','','','','',''];
+let storico=[];
+// Tracked calories: null = unset (will init from formula on first calc)
+let currentCalories=null;
+
+// ── APPROACHES (offsets per guida, sez.5) ────────────
+const APPROACHES={
+  conservative:{label:'Conservativo',startOffset:0.00,weeklyAllowedGainPct:0.002,calIncreasePct:[0.01,0.03]},
+  moderate:    {label:'Moderato',    startOffset:0.10,weeklyAllowedGainPct:0.005,calIncreasePct:[0.03,0.06]},
+  aggressive:  {label:'Aggressivo',  startOffset:0.20,weeklyAllowedGainPct:0.008,calIncreasePct:[0.06,0.09]},
+};
+
+// ── UTILS ──────────────────────────────────────────────
+const round=(n,d=0)=>{if(typeof n!=='number'||isNaN(n))return n;const p=Math.pow(10,d);return Math.round(n*p)/p;};
+const toNum=v=>{if(v===''||v===null||v===undefined)return null;const n=Number(v);return isFinite(n)?n:null;};
+const computeAF=()=>Math.round((Number(lifestyleFactor)+Number(exerciseFactor))*100)/100;
+let _tt;
+function showToast(m,ms=2600){const t=document.getElementById('toast');t.textContent=m;t.classList.add('show');clearTimeout(_tt);_tt=setTimeout(()=>t.classList.remove('show'),ms);}
+function toggleSec(id){const s=document.getElementById(id),o=s.classList.contains('open');s.classList.toggle('open');const b=s.querySelector('.tbtn');if(b)b.textContent=o?'+':'−';}
+function openSec(id,scroll=true){const s=document.getElementById(id);if(!s.classList.contains('open')){s.classList.add('open');const b=s.querySelector('.tbtn');if(b)b.textContent='−';}if(scroll)s.scrollIntoView({behavior:'smooth',block:'start'});}
+function isoWeek(d){const dc=new Date(Date.UTC(d.getFullYear(),d.getMonth(),d.getDate()));dc.setUTCDate(dc.getUTCDate()+4-(dc.getUTCDay()||7));const y=new Date(Date.UTC(dc.getUTCFullYear(),0,1));return Math.ceil((((dc-y)/86400000)+1)/7);}
+function updateHeader(){const now=new Date(),a=APPROACHES[approachKey];document.getElementById('hdr-approach').textContent=a?a.label:'—';document.getElementById('hdr-week').textContent=`W${isoWeek(now)} · ${now.toLocaleString('it-IT',{month:'long'})} ${now.getFullYear()}`;}
+
+// ── FORMULAS ───────────────────────────────────────────
+function aragonBMR(lbm){return lbm&&!isNaN(lbm)?25.3*lbm:null;}
+function mullerBMR(ffm,fm,aN,sexV){if(ffm==null||fm==null||aN==null||isNaN(ffm)||isNaN(fm)||isNaN(aN))return null;return 13.587*ffm+9.613*fm-3.351*aN+674+198*sexV;}
+function mifflinBMR(sexV,w,h,a){if(!sexV||!w||!h||!a)return null;return sexV==='male'?10*w+6.25*h-5*a+5:10*w+6.25*h-5*a-161;}
+
+function computeFormulaTDEE(){
+  const wN=toNum(weight),hN=toNum(height),aN=toNum(age),bfN=toNum(bodyFat);
+  const AF=computeAF(),sexV=sex==='male'?1:0;
+  if(!wN||!hN||!aN||!bfN)return{tdee:0,method:null,estimates:{},AF,lbm:null};
+  const lbm=wN*(1-bfN/100),fm=wN*(bfN/100),est={};
+  const bmrA=aragonBMR(lbm),bmrM=mullerBMR(lbm,fm,aN,sexV);
+  if(bmrA!=null)est.tdeeAragon=Math.round(bmrA*AF);
+  if(bmrM!=null&&!isNaN(bmrM))est.tdeeMuller=Math.round(bmrM*AF);
+  let tdee=0,method=null;
+  if(tdeeMethod==='muller'&&est.tdeeMuller){tdee=est.tdeeMuller;method='Müller';}
+  else if(tdeeMethod==='aragon'&&est.tdeeAragon){tdee=est.tdeeAragon;method='Aragon';}
+  else if(tdeeMethod==='media'&&est.tdeeAragon&&est.tdeeMuller){tdee=Math.round((est.tdeeAragon+est.tdeeMuller)/2);method='Media (A+M)';}
+  else{const b=mifflinBMR(sex,wN,hN,aN);if(b!=null){tdee=Math.round(b*AF);method='Mifflin (fallback)';est.tdeeMifflin=tdee;}}
+  return{tdee,method,estimates:est,AF,lbm};
+}
+
+function estimateMaintenance(){
+  const mN=toNum(measuredMaintenance);
+  if(mN&&mN>0)return{method:'misurato',maintenance:Math.round(mN),AF:computeAF(),estimates:{measured:Math.round(mN)},lbm:computeLBM()};
+  const f=computeFormulaTDEE();
+  return{method:f.method||'formula',maintenance:Math.round(f.tdee||0),AF:f.AF,estimates:f.estimates||{},lbm:f.lbm};
+}
+
+function computeLBM(){const wN=toNum(weight),bfN=toNum(bodyFat);return(wN&&bfN&&bfN>0)?wN*(1-bfN/100):null;}
+
+function computeMacros(kcal){
+  const lbm=computeLBM(),wN=toNum(weight)||0;
+  const proteinG=Math.round(proteinPerKgLBM*(lbm||wN));
+  const proteinK=proteinG*4,rem=Math.max(0,kcal-proteinK);
+  const carbsG=Math.round((rem*carbPercentOfRemaining)/4),carbsK=carbsG*4;
+  const fatsG=Math.round((rem-carbsK)/9),fatsK=fatsG*9;
+  return{proteinG,proteinK,carbsG,carbsK,fatsG,fatsK};
+}
+
+function computeInitialStartCalories(){
+  const mObj=estimateMaintenance(),m=mObj.maintenance||0;
+  const ap=APPROACHES[approachKey]||APPROACHES.conservative;
+  let sc=Math.round(m*(1+ap.startOffset));
+  // Conservative minimum: at least +1% above maintenance (lo end of range)
+  if(m>0&&approachKey==='conservative'){const min=Math.round(m*(1+ap.calIncreasePct[0]));if(sc<min)sc=min;}
+  return{mObj,maintenance:m,startCalories:sc};
+}
+
+function getActiveCalories(){return currentCalories!==null?currentCalories:computeInitialStartCalories().startCalories;}
+
+// ── PLAUSIBILITY ───────────────────────────────────────
+function checkPlausibility(){
+  const wN=toNum(weight),hN=toNum(height),bfN=toNum(bodyFat),aN=toNum(age),warns=[];
+  if(wN&&hN){const bmi=wN/((hN/100)**2);if(bmi<15)warns.push(`BMI ${round(bmi,1)} — peso molto basso per l'altezza.`);if(bmi>55)warns.push(`BMI ${round(bmi,1)} — combinazione insolita, verifica i dati.`);}
+  if(bfN){
+    if(sex==='male'&&bfN<4)warns.push(`BF% ${bfN}% sotto il minimo fisiologico maschile (~4%).`);
+    if(sex==='female'&&bfN<10)warns.push(`BF% ${bfN}% sotto il minimo fisiologico femminile (~10–12%).`);
+    if(wN&&bfN){const lbm=wN*(1-bfN/100);if(lbm<30)warns.push(`LBM calcolata ${round(lbm,1)} kg — sembra molto bassa, verifica peso e BF%.`);}
+  }
+  if(aN&&aN<15)warns.push('Età inserita inferiore a 15 anni — verifica il dato.');
+  const pw=document.getElementById('plausibility-warn'),pt=document.getElementById('plaus-text');
+  if(warns.length){pt.textContent=warns.join(' · ');pw.classList.add('show');}else pw.classList.remove('show');
+}
+
+// ── VALIDATION ─────────────────────────────────────────
+function validateInput(){
+  const errs=[];
+  if(!sex)errs.push('Sesso obbligatorio');
+  const aN=toNum(age);if(!aN||aN<=0)errs.push('Età valida obbligatoria');
+  const hN=toNum(height);if(!hN||hN<=0)errs.push('Altezza valida obbligatoria');
+  const wN=toNum(weight);if(!wN||wN<=0)errs.push('Peso valido obbligatorio');
+  const bN=toNum(bodyFat);if(!bN||bN<=0)errs.push('% Body Fat obbligatorio');else if(bN<2||bN>65)errs.push('% Body Fat fuori range (2–65%)');
+  const el=document.getElementById('input-errors');
+  if(errs.length){el.innerHTML=`<strong>Correggi i seguenti errori:</strong>${errs.map(e=>`<br>— ${e}`).join('')}`;el.classList.add('show');el.scrollIntoView({behavior:'smooth',block:'nearest'});return false;}
+  el.classList.remove('show');return true;
+}
+function validateWeekly(){const w=toNum(weeklyAvgWeight),el=document.getElementById('weekly-error');if(!w||w<=0){el.textContent='Inserisci un peso medio valido';return false;}el.textContent='';return true;}
+
+// ── GOAL → RECOMMENDED ────────────────────────────────
+function updateRecommended(){
+  const row=document.getElementById('rec-row'),valEl=document.getElementById('rec-val'),noteEl=document.getElementById('rec-note');
+  if(!goal){row.classList.remove('visible');return;}
+  row.classList.add('visible');
+  const bfN=toNum(bodyFat);let text='—',cls='',note='';
+  if(goal==='dimagrire'){text='CUT';cls='cut';note='Deficit calorico controllato. Riduci di almeno −20–25% sotto il mantenimento.';}
+  else if(goal==='skinny_fat'){text='REVERSE DIET';cls='reverse';note='Prima ripristina il metabolismo, poi valuta mini-cut o bulk.';}
+  else if(goal==='massa'){
+    const highBF=bfN&&((sex==='male'&&bfN>20)||(sex==='female'&&bfN>28));
+    if(highBF){text='REVERSE DIET';cls='reverse';note='BF% elevato: Reverse Diet prima del Bulk per ottimizzare la composizione corporea.';}
+    else{text='BULK';cls='bulk';note='Surplus calorico moderato. Questo planner gestisce la fase di Reverse pre-bulk.';}
+  }
+  valEl.textContent=text;valEl.className='rec-val '+cls;noteEl.textContent=note;
+}
+
+// ── DISPLAY PLAN ──────────────────────────────────────
+function displayPlan(){
+  const{mObj,maintenance:m,startCalories:sc0}=computeInitialStartCalories();
+  if(currentCalories===null)currentCalories=sc0;
+  const sc=currentCalories;
+  const dk=m>0?Math.round(sc-m):0,dp=m>0?round(((sc-m)/m)*100,1):null;
+  document.getElementById('display-maintenance').innerHTML=`${m}<span class="unit">kcal</span>`;
+  document.getElementById('display-method').textContent=mObj.method||'—';
+  let eh='';const est=mObj.estimates||{};
+  if(est.tdeeAragon!=null)eh+=`<div>Aragon: ${est.tdeeAragon} kcal</div>`;
+  if(est.tdeeMuller!=null)eh+=`<div>Müller: ${est.tdeeMuller} kcal</div>`;
+  if(est.tdeeMifflin!=null)eh+=`<div>Mifflin: ${est.tdeeMifflin} kcal</div>`;
+  document.getElementById('display-estimates').innerHTML=eh;
+  document.getElementById('display-af').textContent=`AF = ${lifestyleFactor} + ${exerciseFactor} = ${computeAF()}`;
+  document.getElementById('display-startCalories').innerHTML=`${sc}<span class="unit">kcal</span>`;
+  document.getElementById('display-approach-label').textContent=APPROACHES[approachKey].label;
+  document.getElementById('display-increase').innerHTML=m>0?`${dp>=0?'+':''}${dp}% (${dk>=0?'+':''}${dk} kcal)`:'—';
+  const macros=computeMacros(sc);
+  document.getElementById('display-proteinGrams').innerHTML=`${macros.proteinG}<span style="font-size:16px">g</span>`;
+  document.getElementById('display-proteinKcal').textContent=`${macros.proteinK} kcal`;
+  document.getElementById('display-carbsGrams').innerHTML=`${macros.carbsG}<span style="font-size:16px">g</span>`;
+  document.getElementById('display-carbsKcal').textContent=`${macros.carbsK} kcal`;
+  document.getElementById('display-fatsGrams').innerHTML=`${macros.fatsG}<span style="font-size:16px">g</span>`;
+  document.getElementById('display-fatsKcal').textContent=`${macros.fatsK} kcal`;
+  const lbm=computeLBM();
+  document.getElementById('display-lbm-note').textContent=lbm?`LBM: ${round(lbm,2)} kg · Proteine su LBM (${proteinPerKgLBM} g/kg)`:'BF% non fornito — proteine su peso totale';
+  document.getElementById('dp-waist').textContent=measureWaist||'—';
+  document.getElementById('dp-hips').textContent=measureHips||'—';
+  document.getElementById('dp-arm').textContent=measureArm||'—';
+  document.getElementById('dp-bf').textContent=bodyFat||'—';
+  document.getElementById('pill-plan').textContent=`${sc} kcal`;document.getElementById('pill-plan').className='pill ok';
+  document.getElementById('pill-input').textContent='✓ compilato';document.getElementById('pill-input').className='pill ok';
+  // Progression bar toward physical readiness (TDEE×1.05)
+  const tf=computeFormulaTDEE().tdee||0;
+  const wrap=document.getElementById('prog-bar-wrap');
+  if(tf>0){
+    wrap.style.display='block';
+    const target=Math.round(tf*1.05);
+    const range=target-sc0,pct=range>0?Math.min(100,Math.max(0,((sc-sc0)/range)*100)):(sc>=target?100:0);
+    document.getElementById('pb-fill').style.width=pct+'%';
+    document.getElementById('pb-val-text').textContent=`${sc} kcal → target: ${target} kcal`;
+    document.getElementById('pb-note').textContent=pct>=100?'✓ Prontezza fisica raggiunta':`${Math.round(pct)}%`;
+  }else wrap.style.display='none';
+  // Reference table hint
+  if(lbm&&m>0)document.getElementById('ref-table-calc').textContent=`Il tuo TDEE stimato è ${m} kcal per LBM di ${round(lbm,1)} kg → ${round(m/lbm,1)} kcal/kg LBM.`;
+}
+
+function displayCurrentCalories(){
+  const sc=getActiveCalories();
+  document.getElementById('display-current-calories').textContent=sc||'—';
+  const tf=computeFormulaTDEE().tdee||0;
+  if(tf>0){
+    document.getElementById('display-target-range').textContent=`${Math.round(tf*1.05)} – ${Math.round(tf*1.10)}`;
+    document.getElementById('display-target-method').textContent=`Basato su: ${computeFormulaTDEE().method}`;
+  }else{document.getElementById('display-target-range').textContent='—';document.getElementById('display-target-method').textContent='Formula non disponibile';}
+  const wp=toNum(weeksPassed)||1;
+  const hint=wp<4?'Fase iniziale — continua il monitoraggio settimanale':wp<8?'Fase intermedia — controlla composizione':wp<12?'Fase avanzata — valuta criteri di uscita':'Durata lunga — verifica i criteri di fine reverse (sez.9 guida)';
+  document.getElementById('weeks-hint').textContent=`Settimana ${wp} · ${hint}`;
+  checkEndReverse(sc,tf);
+  populatePrevWeekRef();
+}
+
+function checkEndReverse(sc,tf){
+  const el=document.getElementById('end-reverse-ready'),txt=document.getElementById('end-reverse-text');
+  if(tf>0&&sc>=Math.round(tf*1.05)){
+    txt.innerHTML=`Calorie attive (<strong>${sc} kcal</strong>) ≥ TDEE formula × 1.05 (<strong>${Math.round(tf*1.05)} kcal</strong>).<br>Prontezza fisica raggiunta (guida, sez.9). Per il Cut: riduci di almeno il 20% → <strong>${Math.round(sc*0.80)} kcal</strong>. Mantieni invariati volume allenamento e passi giornalieri.`;
+    el.style.display='block';
+  }else el.style.display='none';
+}
+
+function populatePrevWeekRef(){
+  const ref=document.getElementById('prev-week-ref');
+  if(storico.length===0){ref.style.display='none';return;}
+  const last=storico[storico.length-1];ref.style.display='block';
+  document.getElementById('prev-weight').textContent=(last.weeklyAvgWeight||last.weight||'—')+' kg';
+  document.getElementById('prev-kcal').textContent=(last.currentCalories||last.plan?.startCalories||'—')+' kcal';
+  document.getElementById('prev-bf-val').textContent=(last.checkBodyFat||last.bodyFat||'—')+'%';
+  document.getElementById('prev-waist-val').textContent=(last.weeklyMeasureWaist||last.measureWaist||'—')+' cm';
+}
+
+// ── WEEKLY CHECK ──────────────────────────────────────
+// prevCal = calorie EFFETTIVE della settimana appena conclusa (getActiveCalories())
+// Nessun early return — levels sempre calcolati
+function computeWeeklyCheck(prevCal,avgW,bfVal=null,measures={}){
+  const ap=APPROACHES[approachKey]||APPROACHES.conservative;
+  const wN=toNum(weight)||0;
+  const allowedGain=wN*ap.weeklyAllowedGainPct,actualGain=round((avgW||0)-wN,3);
+  const bsBF=toNum(bodyFat),bsWaist=toNum(measureWaist);
+  const wkBF=toNum(bfVal),wkWaist=toNum(measures.waist);
+  const bfUp=wkBF!=null&&bsBF!=null&&wkBF>bsBF+1e-6;
+  const wUp=wkWaist!=null&&bsWaist!=null&&wkWaist>bsWaist+1e-6;
+  // Previous week from storico for week-over-week comparison
+  let prevWeekWeight=null,prevWeekWaist=null;
+  if(storico.length>0){const last=storico[storico.length-1];prevWeekWeight=toNum(last.weeklyAvgWeight)||toNum(last.weight)||null;prevWeekWaist=toNum(last.weeklyMeasureWaist)||toNum(last.measureWaist)||null;}
+  const r={allowedGainKg:round(allowedGain,3),actualGainKg:actualGain,decision:'hold',suggestedCalories:prevCal,note:'',weeklyBF:bfVal,weeklyMeasures:measures,options:null,levels:null,prevWeekWeight,prevWeekWaist};
+  const tf=computeFormulaTDEE().tdee||0;
+  // Decision tree — all branches complete, no early return
+  if(tf>0&&prevCal>=Math.round(tf*1.10)){
+    r.decision='finished_reverse';r.suggestedCalories=prevCal;
+    r.note='Calorie ≥ TDEE_formula×1.10. Mantieni stabili 1–2 settimane, poi avvia il Cut con riduzione minima del 20%.';
+  }else if(actualGain<=allowedGain+1e-9){
+    const[lo,hi]=ap.calIncreasePct,pct=(lo+hi)/2;
+    r.decision='increase';r.suggestedCalories=Math.round(prevCal*(1+pct));
+    r.note=`Aumento entro il limite (≤${round(ap.weeklyAllowedGainPct*100,1)}% peso/sett.). Aumenta ~${round(pct*100,1)}% (range: ${round(lo*100,1)}%–${round(hi*100,1)}%).`;
+  }else if(!bfUp&&!wUp){
+    const[lo,hi]=ap.calIncreasePct,pct=(lo+hi)/2;
+    r.decision='exceeds_but_no_bf_waist_increase';
+    r.options={
+      continue_increase:{suggestedCalories:Math.round(prevCal*(1+pct)),note:`+${round(pct*100,1)}%. BF% e Vita invariati → probabile massa magra o ritenzione idrica.`},
+      maintain:{suggestedCalories:prevCal,note:'Mantieni stabili 1–2 settimane e osserva se la tendenza persiste.'}
+    };
+    r.note='Peso oltre limite ma BF% e Vita invariati. Probabile ritenzione idrica o guadagno magro. Scegli l\'opzione.';
+  }else{
+    r.decision='hold_or_reduce';
+    r.note='Peso oltre limite E BF%/Vita in aumento. Mantieni calorie stabili 1–2 settimane.';
+    if(actualGain>allowedGain*2){r.suggestedCalories=Math.round(prevCal*0.97);r.note+=' Riduzione −3% suggerita: possibile scarsa aderenza al piano.';}
+  }
+  // Levels kcal/kg — always computed
+  const uKg=toNum(avgW)||toNum(weight)||0;
+  if(uKg>0){
+    const lvl={base:{male:[31,34],female:[28,31]},intermediate:{male:[35,37],female:[32,34]},advanced:{male:[38,9999],female:[36,9999]}};
+    const gk=sex==='male'?'male':'female';
+    const lk={base:[Math.round(lvl.base[gk][0]*uKg),Math.round(lvl.base[gk][1]*uKg)],intermediate:[Math.round(lvl.intermediate[gk][0]*uKg),Math.round(lvl.intermediate[gk][1]*uKg)],advanced:[Math.round(lvl.advanced[gk][0]*uKg),Infinity]};
+    const cpk=round(prevCal/uKg,2);
+    let cur='Sotto base';
+    if(cpk>=lvl.advanced[gk][0])cur='Avanzato';else if(cpk>=lvl.intermediate[gk][0])cur='Intermedio';else if(cpk>=lvl.base[gk][0])cur='Base';
+    r.levels={levelKcal:lk,currentLevel:cur,calsPerKg:cpk};
+  }
+  return r;
+}
+
+// ── ACCEPT SUGGESTION — core progression mechanic ─────
+function acceptSuggestion(newKcal){
+  currentCalories=newKcal;
+  displayPlan();displayCurrentCalories();
+  showToast(`✓ Piano aggiornato: ${newKcal} kcal`);
+  openSec('sec-plan');
+  document.getElementById('weekly-suggestion').style.display='none';
+}
+
+// ── DISPLAY SUGGESTION ────────────────────────────────
+function displaySuggestion(sug,prevCal){
+  const con=document.getElementById('weekly-suggestion');
+  const DL={increase:{label:'AUMENTA',c:'var(--green)'},hold_or_reduce:{label:'RIDUCI/MANTIENI',c:'var(--red)'},exceeds_but_no_bf_waist_increase:{label:'OPZIONI',c:'var(--accent)'},finished_reverse:{label:'FINE REVERSE',c:'var(--green)'},hold:{label:'MANTIENI',c:'var(--muted)'}};
+  const dl=DL[sug.decision]||DL.hold;
+  const sugKcal=sug.options?'—':sug.suggestedCalories;
+  const wdelta=sug.prevWeekWeight!=null&&weeklyAvgWeight!==''?round(toNum(weeklyAvgWeight)-sug.prevWeekWeight,2):null;
+  const wdH=wdelta!=null?` <span class="${wdelta>0?'diff-pos':'diff-neg'}">(${wdelta>0?'+':''}${wdelta} kg)</span>`:'';
+  let h=`<div class="sug-head"><span class="sug-badge" style="border-color:${dl.c};color:${dl.c}">${dl.label}</span><span class="sug-title">Settimana prossima</span><span class="sug-kcal">${sugKcal!=='—'?sugKcal+' kcal':'—'}</span></div>
+  <div class="sug-body">
+  <div class="sug-g">
+    <div class="sug-row"><div class="sr-label">Peso medio questa sett.</div><div class="sr-val">${weeklyAvgWeight||'—'} kg${wdH}</div></div>
+    <div class="sug-row"><div class="sr-label">Peso sett. precedente</div><div class="sr-val">${sug.prevWeekWeight!=null?sug.prevWeekWeight+' kg':'—'}</div></div>
+    <div class="sug-row"><div class="sr-label">Kcal piano corrente</div><div class="sr-val">${prevCal} kcal</div></div>
+    <div class="sug-row"><div class="sr-label">Guadagno consentito</div><div class="sr-val">${sug.allowedGainKg} kg/sett.</div></div>
+    <div class="sug-row"><div class="sr-label">Guadagno effettivo</div><div class="sr-val">${sug.actualGainKg} kg</div></div>
+    <div class="sug-row"><div class="sr-label">BF% · Settimane</div><div class="sr-val">${sug.weeklyBF??'—'}% · W${weeksPassed}</div></div>
+  </div>
+  <div class="sug-note">${sug.note}</div>`;
+  if(sug.decision==='finished_reverse')h+=`<div style="font-family:var(--mono);font-size:11px;color:var(--muted2);line-height:1.7;margin-bottom:14px;padding:10px 12px;border:1px solid var(--divider)"><strong>Fine Reverse Diet (guida, sez.9):</strong><br>Mantieni queste calorie 1–2 settimane per stabilizzare. Per il Cut: riduci di almeno −20% → <strong>${Math.round(prevCal*0.80)} kcal</strong>. Mantieni invariati volume allenamento e passi giornalieri.</div>`;
+  if(sug.options)h+=`<div class="sug-opts"><div class="sug-opt"><div class="so-title">↑ Continua ad aumentare</div><div class="so-kcal">${sug.options.continue_increase.suggestedCalories} kcal</div><div class="so-note">${sug.options.continue_increase.note}</div><div style="margin-top:8px"><button class="btn btn-accent" onclick="acceptSuggestion(${sug.options.continue_increase.suggestedCalories})" style="padding:7px 14px;font-size:9px">Accetta →</button></div></div><div class="sug-opt"><div class="so-title">— Mantieni stabili</div><div class="so-kcal">${sug.options.maintain.suggestedCalories} kcal</div><div class="so-note">${sug.options.maintain.note}</div><div style="margin-top:8px"><button class="btn btn-ghost" onclick="acceptSuggestion(${sug.options.maintain.suggestedCalories})" style="padding:7px 14px;font-size:9px">Accetta →</button></div></div></div>`;
+  if(sug.levels){
+    const{levelKcal:lk,currentLevel:cur,calsPerKg:cpk}=sug.levels;
+    const fR=r=>r[1]===Infinity?`>${r[0]}`:`${r[0]}–${r[1]}`;
+    h+=`<div class="lvl-label">Livelli kcal/kg peso — attuale: ${cpk} kcal/kg (${cur})</div><div class="lvl-grid"><div class="lvl-item ${cur==='Base'?'active':''}"><div class="li-label">Base</div><div class="li-range">${fR(lk.base)} kcal</div></div><div class="lvl-item ${cur==='Intermedio'?'active':''}"><div class="li-label">Intermedio</div><div class="li-range">${fR(lk.intermediate)} kcal</div></div><div class="lvl-item ${cur==='Avanzato'?'active':''}"><div class="li-label">Avanzato</div><div class="li-range">${fR(lk.advanced)} kcal</div></div></div>`;
+  }
+  // Measures — vs baseline AND vs previous week
+  const bsW=toNum(measureWaist),bsH=toNum(measureHips),bsA=toNum(measureArm),bsBF2=toNum(bodyFat);
+  const wm=sug.weeklyMeasures,pw=sug.prevWeekWaist;
+  const dS=(v,bs,u,pv=null)=>{const vn=toNum(v);if(vn==null)return'—';let s=`${vn} ${u}`;if(bs!=null){const d=round(vn-bs,1),sg=d>0?'+':'';s+=` <span class="${d>0?'diff-pos':d<0?'diff-neg':'diff-neu'}">(${sg}${d} vs base)</span>`;}if(pv!=null){const dp=round(vn-pv,1),sg=dp>0?'+':'';s+=` <span style="font-size:9px;color:var(--muted)">[${sg}${dp} vs prev]</span>`;}return s;};
+  h+=`<div class="lvl-label" style="margin-top:12px">Misure — baseline → attuale (vs base · [vs settimana precedente])</div><div class="sug-g"><div class="sug-row"><div class="sr-label">Vita</div><div class="sr-val" style="font-size:12px">${bsW||'—'} → ${dS(toNum(wm?.waist),bsW,'cm',pw)}</div></div><div class="sug-row"><div class="sr-label">Fianchi</div><div class="sr-val" style="font-size:12px">${bsH||'—'} → ${dS(toNum(wm?.hips),bsH,'cm')}</div></div><div class="sug-row"><div class="sr-label">Braccio</div><div class="sr-val" style="font-size:12px">${bsA||'—'} → ${dS(toNum(wm?.arm),bsA,'cm')}</div></div><div class="sug-row"><div class="sr-label">BF%</div><div class="sr-val" style="font-size:12px">${bsBF2||'—'} → ${dS(toNum(sug.weeklyBF),bsBF2,'%')}</div></div></div>`;
+  if(!sug.options)h+=`</div><div class="accept-bar"><span class="accept-note">Accettando, aggiorni le calorie del piano attivo per la settimana prossima.</span><button class="btn ${sug.decision==='hold_or_reduce'?'btn-danger':'btn-accent'}" onclick="acceptSuggestion(${sug.suggestedCalories})">${sug.decision==='hold_or_reduce'?'Accetta riduzione':'Accetta aumento'} → ${sug.suggestedCalories} kcal</button></div>`;
+  else h+='</div>';
+  con.innerHTML=h;con.style.display='block';
+  document.getElementById('pill-check').textContent='✓ valutato';document.getElementById('pill-check').className='pill ok';
+  checkEndReverse(prevCal,computeFormulaTDEE().tdee||0);
+}
+
+// ── DAY WEIGHTS ───────────────────────────────────────
+function handleDayChange(){
+  dayWeights=['day1','day2','day3','day4','day5','day6','day7'].map(id=>document.getElementById(id).value);
+  const nums=dayWeights.map(toNum).filter(x=>x!=null&&!isNaN(x));
+  document.getElementById('days-label').textContent=`${nums.length}/7 giorni`;
+  if(nums.length>0){weeklyAvgWeight=round(nums.reduce((a,b)=>a+b,0)/nums.length,2);document.getElementById('weeklyAvgWeight').value=weeklyAvgWeight;}
+  else{weeklyAvgWeight='';document.getElementById('weeklyAvgWeight').value='';}
+}
+
+// ── STORICO ────────────────────────────────────────────
+function saveData(){
+  const entry={date:new Date().toISOString(),sex,age,height,weight,bodyFat,goal,measuredMaintenance,lifestyleFactor,exerciseFactor,proteinPerKgLBM,carbPercentOfRemaining,approachKey,tdeeMethod,measureWaist,measureHips,measureArm,weeklyAvgWeight,weeksPassed,checkBodyFat,weeklyMeasureWaist,weeklyMeasureHips,weeklyMeasureArm,dayWeights,currentCalories:getActiveCalories(),plan:{startCalories:getActiveCalories()}};
+  storico.push(entry);localStorage.setItem('reverseDietStorico',JSON.stringify(storico));
+  refreshStorico();renderChart();showToast('✓ Dati salvati');
+}
+function loadData(){try{const raw=localStorage.getItem('reverseDietStorico');if(!raw)return;storico=JSON.parse(raw);if(storico.length>0)restoreState(storico[storico.length-1]);}catch(e){console.error(e);}}
+function restoreState(e){
+  sex=e.sex||sex;age=e.age||age;height=e.height||height;weight=e.weight||weight;bodyFat=e.bodyFat||bodyFat;goal=e.goal||'';measuredMaintenance=e.measuredMaintenance||'';
+  lifestyleFactor=e.lifestyleFactor||lifestyleFactor;exerciseFactor=e.exerciseFactor||exerciseFactor;proteinPerKgLBM=e.proteinPerKgLBM||proteinPerKgLBM;carbPercentOfRemaining=e.carbPercentOfRemaining||carbPercentOfRemaining;
+  approachKey=e.approachKey||approachKey;tdeeMethod=e.tdeeMethod||tdeeMethod;
+  measureWaist=e.measureWaist||'';measureHips=e.measureHips||'';measureArm=e.measureArm||'';
+  weeklyAvgWeight=e.weeklyAvgWeight||'';weeksPassed=e.weeksPassed||1;checkBodyFat=e.checkBodyFat||'';
+  weeklyMeasureWaist=e.weeklyMeasureWaist||'';weeklyMeasureHips=e.weeklyMeasureHips||'';weeklyMeasureArm=e.weeklyMeasureArm||'';
+  dayWeights=e.dayWeights||['','','','','','',''];
+  currentCalories=e.currentCalories||null;
+  syncForm();
+}
+function syncForm(){
+  const set=(id,v)=>{const el=document.getElementById(id);if(el)el.value=v;};
+  set('sex',sex);set('age',age);set('height',height);set('weight',weight);set('bodyFat',bodyFat);set('goal',goal);set('measuredMaintenance',measuredMaintenance);
+  set('lifestyleFactor',lifestyleFactor);set('exerciseFactor',exerciseFactor);set('proteinPerKgLBM',proteinPerKgLBM);set('carbPercentOfRemaining',carbPercentOfRemaining);set('approachKey',approachKey);set('tdeeMethod',tdeeMethod);
+  set('measureWaist',measureWaist);set('measureHips',measureHips);set('measureArm',measureArm);set('weeklyAvgWeight',weeklyAvgWeight);set('weeksPassed',weeksPassed);set('checkBodyFat',checkBodyFat);
+  set('weeklyMeasureWaist',weeklyMeasureWaist);set('weeklyMeasureHips',weeklyMeasureHips);set('weeklyMeasureArm',weeklyMeasureArm);
+  dayWeights.forEach((v,i)=>set(`day${i+1}`,v));
+  document.getElementById('carb-pct').textContent=Math.round(carbPercentOfRemaining*100);document.getElementById('fat-pct').textContent=Math.round((1-carbPercentOfRemaining)*100);
+  updateRecommended();updateHeader();
+}
+function refreshStorico(){
+  const tbody=document.getElementById('storico-body');tbody.innerHTML='';
+  const wrap=document.getElementById('storico-wrap');
+  if(storico.length===0){wrap.style.display='none';document.getElementById('pill-storico').textContent='0 entries';document.getElementById('pill-storico').className='pill idle';return;}
+  wrap.style.display='block';
+  storico.slice().reverse().forEach((e,ri)=>{
+    const idx=storico.length-1-ri,prev=idx>0?storico[idx-1]:null;
+    const date=new Date(e.date).toLocaleDateString('it-IT',{day:'2-digit',month:'2-digit',year:'numeric'});
+    const app=APPROACHES[e.approachKey]?.label||e.approachKey||'—';
+    const eKcal=e.currentCalories||e.plan?.startCalories,pKcal=prev?(prev.currentCalories||prev.plan?.startCalories):null;
+    const eW=toNum(e.weeklyAvgWeight)||toNum(e.weight),pW=prev?(toNum(prev.weeklyAvgWeight)||toNum(prev.weight)):null;
+    const dK=pKcal&&eKcal?`<span class="${eKcal>=pKcal?'delta-up':'delta-dn'}">${eKcal>=pKcal?'+':''}${eKcal-pKcal}</span>`:'—';
+    const dW=pW&&eW?`<span class="${eW>=pW?'delta-up':'delta-dn'}">${eW>=pW?'+':''}${round(eW-pW,2)}</span>`:'—';
+    const tr=document.createElement('tr');tr.innerHTML=`<td>${date}</td><td>${eW||'—'} kg</td><td>${dW}</td><td>${eKcal||'—'}</td><td>${dK}</td><td>${app}</td><td>${e.bodyFat||'—'}%</td><td>${e.weeksPassed||'—'}</td><td><button class="lb" onclick="loadEntry(${idx})">Carica</button></td>`;tbody.appendChild(tr);
+  });
+  document.getElementById('pill-storico').textContent=`${storico.length} entr${storico.length===1?'y':'ies'}`;document.getElementById('pill-storico').className='pill ok';
+}
+function loadEntry(idx){restoreState(storico[idx]);showToast('Entry caricata');openSec('sec-input');if(validateInput())displayPlan();displayCurrentCalories();}
+function exportData(){const b=new Blob([JSON.stringify(storico,null,2)],{type:'application/json'});const a=document.createElement('a');a.href=URL.createObjectURL(b);a.download=`diet-plan-${new Date().toISOString().slice(0,10)}.json`;a.click();URL.revokeObjectURL(a.href);showToast('✓ Esportazione completata');}
+
+// ── CHART with linear regression trend ───────────────
+function linReg(pts){const n=pts.length;if(n<2)return null;const sx=pts.reduce((a,p)=>a+p.x,0),sy=pts.reduce((a,p)=>a+p.y,0),sxy=pts.reduce((a,p)=>a+p.x*p.y,0),sx2=pts.reduce((a,p)=>a+p.x*p.x,0),d=n*sx2-sx*sx;if(d===0)return null;const m=(n*sxy-sx*sy)/d,b=(sy-m*sx)/n;return{at:x=>m*x+b};}
+
+function renderChart(){
+  const canvas=document.getElementById('prog-chart'),empty=document.getElementById('chart-empty');
+  if(storico.length<2){canvas.style.display='none';empty.style.display='block';empty.textContent=storico.length===0?'Nessun dato salvato ancora.':'Aggiungi almeno 2 settimane per il grafico.';return;}
+  canvas.style.display='block';empty.style.display='none';
+  const dpr=window.devicePixelRatio||1,W=canvas.parentElement.clientWidth-32,H=160;
+  canvas.width=W*dpr;canvas.height=H*dpr;canvas.style.width=W+'px';canvas.style.height=H+'px';
+  const ctx=canvas.getContext('2d');ctx.scale(dpr,dpr);ctx.clearRect(0,0,W,H);
+  const PAD={t:18,r:14,b:28,l:52},cW=W-PAD.l-PAD.r,cH=H-PAD.t-PAD.b;
+  const weights=storico.map(e=>toNum(e.weeklyAvgWeight)||toNum(e.weight)||null);
+  const kcals=storico.map(e=>e.currentCalories||e.plan?.startCalories||null);
+  const vW=weights.filter(x=>x!=null),vK=kcals.filter(x=>x!=null);
+  if(!vW.length&&!vK.length)return;
+  const minW=Math.min(...vW)*0.985,maxW=Math.max(...vW)*1.015,minK=Math.min(...vK)*0.97,maxK=Math.max(...vK)*1.03;
+  const xS=i=>PAD.l+(i/(storico.length-1||1))*cW,yW=v=>PAD.t+cH-((v-minW)/(maxW-minW||1))*cH,yK=v=>PAD.t+cH-((v-minK)/(maxK-minK||1))*cH;
+  // Grid
+  ctx.strokeStyle='#e0dbd2';ctx.lineWidth=1;for(let i=0;i<=4;i++){const y=PAD.t+(i/4)*cH;ctx.beginPath();ctx.moveTo(PAD.l,y);ctx.lineTo(PAD.l+cW,y);ctx.stroke();}
+  // X labels
+  ctx.font=`9px 'DM Mono',monospace`;ctx.fillStyle='#999';ctx.textAlign='center';const step=Math.max(1,Math.floor(storico.length/7));for(let i=0;i<storico.length;i+=step){const d=new Date(storico[i].date);ctx.fillText(d.toLocaleDateString('it-IT',{day:'2-digit',month:'2-digit'}),xS(i),H-5);}
+  // Y labels
+  ctx.textAlign='right';ctx.fillStyle='#0c0c0c';for(let i=0;i<=4;i++){const v=minW+(i/4)*(maxW-minW);ctx.fillText(round(v,1),PAD.l-6,PAD.t+cH-(i/4)*cH+3);}
+  // Kcal (yellow dashed)
+  if(vK.length>=2){ctx.strokeStyle='#f0c030';ctx.lineWidth=2;ctx.setLineDash([4,3]);ctx.beginPath();let st=false;kcals.forEach((v,i)=>{if(v==null)return;st?ctx.lineTo(xS(i),yK(v)):ctx.moveTo(xS(i),yK(v));st=true;});ctx.stroke();ctx.setLineDash([]);}
+  // Weight (black solid)
+  if(vW.length>=2){
+    ctx.strokeStyle='#0c0c0c';ctx.lineWidth=2.5;ctx.beginPath();let st=false;weights.forEach((v,i)=>{if(v==null)return;st?ctx.lineTo(xS(i),yW(v)):ctx.moveTo(xS(i),yW(v));st=true;});ctx.stroke();
+    weights.forEach((v,i)=>{if(v==null)return;ctx.beginPath();ctx.arc(xS(i),yW(v),3,0,Math.PI*2);ctx.fillStyle='#0c0c0c';ctx.fill();});
+    // Trend line (linear regression)
+    const pts=weights.map((v,i)=>v!=null?{x:i,y:v}:null).filter(p=>p!=null);
+    const reg=linReg(pts);
+    if(reg){const x0=pts[0].x,xN=pts[pts.length-1].x;ctx.strokeStyle='rgba(100,100,100,0.5)';ctx.lineWidth=1.5;ctx.setLineDash([3,4]);ctx.beginPath();ctx.moveTo(xS(x0),yW(reg.at(x0)));ctx.lineTo(xS(xN),yW(reg.at(xN)));ctx.stroke();ctx.setLineDash([]);}
+  }
+  // Legend
+  const lx=PAD.l,ly=PAD.t+1;ctx.font=`9px 'DM Mono',monospace`;ctx.textAlign='left';
+  ctx.strokeStyle='#0c0c0c';ctx.lineWidth=2.5;ctx.setLineDash([]);ctx.beginPath();ctx.moveTo(lx,ly);ctx.lineTo(lx+14,ly);ctx.stroke();ctx.fillStyle='#0c0c0c';ctx.fillText('Peso',lx+18,ly+3);
+  ctx.strokeStyle='rgba(100,100,100,0.5)';ctx.lineWidth=1.5;ctx.setLineDash([3,4]);ctx.beginPath();ctx.moveTo(lx+56,ly);ctx.lineTo(lx+70,ly);ctx.stroke();ctx.setLineDash([]);ctx.fillStyle='#999';ctx.fillText('Trend',lx+74,ly+3);
+  ctx.strokeStyle='#f0c030';ctx.lineWidth=2;ctx.setLineDash([4,3]);ctx.beginPath();ctx.moveTo(lx+122,ly);ctx.lineTo(lx+136,ly);ctx.stroke();ctx.setLineDash([]);ctx.fillText('Kcal',lx+140,ly+3);
+}
+
+// ── EVENT LISTENERS ───────────────────────────────────
+document.addEventListener('DOMContentLoaded',()=>{
+  loadData();refreshStorico();renderChart();updateHeader();displayCurrentCalories();
+  const bind=(id,fn)=>document.getElementById(id)?.addEventListener('change',fn);
+  bind('sex',e=>{sex=e.target.value;updateRecommended();checkPlausibility();});
+  bind('age',e=>{age=e.target.value;checkPlausibility();});
+  bind('height',e=>{height=e.target.value;checkPlausibility();});
+  bind('weight',e=>{weight=e.target.value;updateRecommended();checkPlausibility();});
+  bind('bodyFat',e=>{bodyFat=e.target.value;updateRecommended();checkPlausibility();});
+  bind('goal',e=>{goal=e.target.value;updateRecommended();});
+  bind('measuredMaintenance',e=>measuredMaintenance=e.target.value);
+  bind('lifestyleFactor',e=>lifestyleFactor=Number(e.target.value));
+  bind('exerciseFactor',e=>exerciseFactor=Number(e.target.value));
+  bind('proteinPerKgLBM',e=>proteinPerKgLBM=Number(e.target.value));
+  bind('approachKey',e=>{approachKey=e.target.value;updateHeader();});
+  bind('tdeeMethod',e=>tdeeMethod=e.target.value);
+  bind('measureWaist',e=>measureWaist=e.target.value);bind('measureHips',e=>measureHips=e.target.value);bind('measureArm',e=>measureArm=e.target.value);
+  document.getElementById('carbPercentOfRemaining').addEventListener('input',e=>{carbPercentOfRemaining=Number(e.target.value);document.getElementById('carb-pct').textContent=Math.round(carbPercentOfRemaining*100);document.getElementById('fat-pct').textContent=Math.round((1-carbPercentOfRemaining)*100);});
+  document.getElementById('calc-plan').addEventListener('click',()=>{if(!validateInput())return;currentCalories=null;displayPlan();openSec('sec-plan');});
+  document.getElementById('reset-plan-btn').addEventListener('click',()=>{if(!confirm('Azzerare le calorie tracciate e tornare al calcolo formula?'))return;currentCalories=null;if(validateInput())displayPlan();showToast('Calorie tracciate azzerate');});
+  document.getElementById('go-to-check').addEventListener('click',()=>{displayCurrentCalories();openSec('sec-check');});
+  document.getElementById('back-to-input').addEventListener('click',()=>openSec('sec-input'));
+  document.getElementById('save-plan').addEventListener('click',saveData);
+  ['day1','day2','day3','day4','day5','day6','day7'].forEach(id=>document.getElementById(id).addEventListener('input',handleDayChange));
+  document.getElementById('clear-days').addEventListener('click',()=>{dayWeights=['','','','','','',''];['day1','day2','day3','day4','day5','day6','day7'].forEach(id=>document.getElementById(id).value='');weeklyAvgWeight='';document.getElementById('weeklyAvgWeight').value='';document.getElementById('days-label').textContent='0/7 giorni';});
+  bind('weeklyAvgWeight',e=>weeklyAvgWeight=e.target.value);bind('checkBodyFat',e=>checkBodyFat=e.target.value);bind('weeksPassed',e=>{weeksPassed=e.target.value;displayCurrentCalories();});
+  bind('weeklyMeasureWaist',e=>weeklyMeasureWaist=e.target.value);bind('weeklyMeasureHips',e=>weeklyMeasureHips=e.target.value);bind('weeklyMeasureArm',e=>weeklyMeasureArm=e.target.value);
+  document.getElementById('evaluate-check').addEventListener('click',()=>{if(!validateWeekly())return;const measures={waist:weeklyMeasureWaist,hips:weeklyMeasureHips,arm:weeklyMeasureArm};const prevCal=getActiveCalories();displaySuggestion(computeWeeklyCheck(prevCal,toNum(weeklyAvgWeight),toNum(checkBodyFat),measures),prevCal);});
+  document.getElementById('save-check').addEventListener('click',saveData);
+  document.getElementById('export-btn').addEventListener('click',exportData);
+  document.getElementById('clear-storico').addEventListener('click',()=>{if(!confirm('Cancellare tutto lo storico? Irreversibile.'))return;storico=[];localStorage.removeItem('reverseDietStorico');refreshStorico();renderChart();showToast('Storico cancellato');});
+  if(storico.length>0){document.getElementById('sec-input').classList.remove('open');document.getElementById('tbtn-input').textContent='+';openSec('sec-check',false);if(validateInput())displayPlan();displayCurrentCalories();}
+});
+</script>
+</body>
+</html>
