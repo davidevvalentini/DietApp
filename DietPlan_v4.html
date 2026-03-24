@@ -371,15 +371,15 @@ details.help[open] summary::before{background:var(--text);color:var(--bg);border
     </div>
     <details class="help"><summary>Tabelle kcal/kg LBM per mantenimento (guida, sez.9)</summary><div class="help-body">
       <strong>Fattore di Attività &lt; 1.5</strong>
-      <table><tr><th>Età</th><th>Sotto la norma</th><th>Normale</th><th>Sopra la norma</th></tr><tr><td>18–40</td><td>25–35 kcal/kg</td><td>35–45</td><td>45–55</td></tr><tr><td>40–60</td><td>22–32</td><td>32–42</td><td>42–52</td></tr></table><br>
+      <table><tr><th>Età</th><th>Sotto la norma</th><th>Normale</th><th>Sopra la norma</th></tr><tr><td>18–40</td><td>25–35 kcal/kg LBM</td><td>35–45 kcal/kg LBM</td><td>45–55 kcal/kg LBM</td></tr><tr><td>40–60</td><td>22–32 kcal/kg LBM</td><td>32–42 kcal/kg LBM</td><td>42–52 kcal/kg LBM</td></tr></table><br>
       <strong>Fattore di Attività ≥ 1.5</strong>
-      <table><tr><th>Età</th><th>Sotto la norma</th><th>Normale</th><th>Sopra la norma</th></tr><tr><td>18–40</td><td>28–38 kcal/kg</td><td>38–48</td><td>48–58</td></tr><tr><td>40–60</td><td>25–35</td><td>35–45</td><td>45–55</td></tr></table><br>
+      <table><tr><th>Età</th><th>Sotto la norma</th><th>Normale</th><th>Sopra la norma</th></tr><tr><td>18–40</td><td>28–38 kcal/kg LBM</td><td>38–48 kcal/kg LBM</td><td>48–58 kcal/kg LBM</td></tr><tr><td>40–60</td><td>25–35 kcal/kg LBM</td><td>35–45 kcal/kg LBM</td><td>45–55 kcal/kg LBM</td></tr></table><br>
       <strong id="ref-table-calc">—</strong>
     </div></details>
     <div class="btn-row">
       <button class="btn btn-primary" id="go-to-check">Vai al Check →</button>
       <button class="btn btn-ghost" id="back-to-input">← Modifica Input</button>
-      <button class="btn btn-ghost" id="save-plan">Salva</button>
+      <button class="btn btn-ghost" id="save-plan">Salva Piano Base</button>
     </div>
   </div>
 </div>
@@ -473,10 +473,22 @@ let measureWaist='',measureHips='',measureArm='';
 let weeklyAvgWeight='',weeksPassed=1,checkBodyFat='';
 let weeklyMeasureWaist='',weeklyMeasureHips='',weeklyMeasureArm='';
 let dayWeights=['','','','','','',''];
+let pianoBase=null;
 let storico=[];
 let currentCalories=null;
 // Skinny Fat specific state
 let sfPhase=1, sfDeficitPct=15, sfTargetBF=13;
+const STORAGE_KEYS={base:'pianoBase',history:'storico',legacyHistory:'reverseDietStorico'};
+const GUIDE_MAINTENANCE_TABLE={
+  lowAF:{
+    age18to40:{under:[25,35],normal:[35,45],above:[45,55]},
+    age40to60:{under:[22,32],normal:[32,42],above:[42,52]},
+  },
+  highAF:{
+    age18to40:{under:[28,38],normal:[38,48],above:[48,58]},
+    age40to60:{under:[25,35],normal:[35,45],above:[45,55]},
+  }
+};
 
 // ── APPROACHES (Reverse Diet only) ────────────────────
 const APPROACHES={
@@ -502,11 +514,44 @@ const toNum=v=>{if(v===''||v===null||v===undefined)return null;const n=Number(v)
 const computeAF=()=>Math.round((Number(lifestyleFactor)+Number(exerciseFactor))*100)/100;
 const isSF=()=>approachKey==='skinny_fat';
 let _tt;
+const EMPTY_DAY_WEIGHTS=()=>['','','','','','',''];
 function showToast(m,ms=2600){const t=document.getElementById('toast');t.textContent=m;t.classList.add('show');clearTimeout(_tt);_tt=setTimeout(()=>t.classList.remove('show'),ms);}
 function toggleSec(id){const s=document.getElementById(id),o=s.classList.contains('open');s.classList.toggle('open');const b=s.querySelector('.tbtn');if(b)b.textContent=o?'+':'−';}
 function openSec(id,scroll=true){const s=document.getElementById(id);if(!s.classList.contains('open')){s.classList.add('open');const b=s.querySelector('.tbtn');if(b)b.textContent='−';}if(scroll)s.scrollIntoView({behavior:'smooth',block:'start'});}
 function isoWeek(d){const dc=new Date(Date.UTC(d.getFullYear(),d.getMonth(),d.getDate()));dc.setUTCDate(dc.getUTCDate()+4-(dc.getUTCDay()||7));const y=new Date(Date.UTC(dc.getUTCFullYear(),0,1));return Math.ceil((((dc-y)/86400000)+1)/7);}
 function updateHeader(){const now=new Date(),a=APPROACHES[approachKey];let lbl=a?a.label:'—';if(isSF())lbl=`SF — ${SF_PHASES[sfPhase]?.label||'—'}`;document.getElementById('hdr-approach').textContent=lbl;document.getElementById('hdr-week').textContent=`W${isoWeek(now)} · ${now.toLocaleString('it-IT',{month:'long'})} ${now.getFullYear()}`;}
+function getApproachLabel(ap=approachKey,phase=sfPhase){if(ap==='skinny_fat')return`SF F${phase||1}`;return APPROACHES[ap]?.label||ap||'—';}
+function formatKcalRange(range){return`${range[0]} – ${range[1]}`;}
+function getGuideAgeBand(aN=toNum(age)){
+  if(aN==null)return null;
+  if(aN<40)return{key:'age18to40',label:'18–40',outOfRange:aN<18,rangeLabel:aN<18?'18–40 (fascia vicina)':'18–40'};
+  return{key:'age40to60',label:'40–60',outOfRange:aN>60,rangeLabel:aN>60?'40–60 (fascia vicina)':'40–60'};
+}
+function getGuideAFBand(af=computeAF()){return af>=1.5?{key:'highAF',label:'AF ≥ 1.5'}:{key:'lowAF',label:'AF < 1.5'};}
+function classifyGuideZone(calsPerKg,perKg){
+  if(calsPerKg==null||!perKg)return{key:'unknown',label:'—'};
+  if(calsPerKg<perKg.normal[0])return{key:'under',label:'Sotto il normale'};
+  if(calsPerKg<=perKg.normal[1])return{key:'normal',label:'Normale'};
+  return{key:'above',label:'Sopra il normale'};
+}
+function getGuideMaintenanceContext(calories=null){
+  const lbm=computeLBM(),ageBand=getGuideAgeBand(),afBand=getGuideAFBand();
+  if(!lbm||!ageBand)return null;
+  const perKg=GUIDE_MAINTENANCE_TABLE[afBand.key][ageBand.key];
+  const absolute={
+    under:perKg.under.map(v=>Math.round(v*lbm)),
+    normal:perKg.normal.map(v=>Math.round(v*lbm)),
+    above:perKg.above.map(v=>Math.round(v*lbm)),
+  };
+  const calsPerKg=calories!=null?round(calories/lbm,2):null;
+  return{lbmRaw:lbm,lbm:round(lbm,1),ageBand,afBand,perKg,absolute,calsPerKg,currentZone:classifyGuideZone(calsPerKg,perKg)};
+}
+function getGuideProgressPct(current,start,targetMin){
+  if(current==null||targetMin==null)return 0;
+  if(current>=targetMin)return 100;
+  if(start==null||start===targetMin)return 0;
+  return Math.min(100,Math.max(0,((current-start)/(targetMin-start))*100));
+}
 
 // ── FORMULAS ───────────────────────────────────────────
 function aragonBMR(lbm){return lbm&&!isNaN(lbm)?25.3*lbm:null;}
@@ -612,6 +657,7 @@ function displayPlan(){
   const{mObj,maintenance:m,startCalories:sc0,startLabel}=computeInitialStartCalories();
   if(currentCalories===null)currentCalories=sc0;
   const sc=currentCalories;
+  const guideCtx=getGuideMaintenanceContext(sc);
   const dk=m>0?Math.round(sc-m):0,dp=m>0?round(((sc-m)/m)*100,1):null;
   document.getElementById('display-maintenance').innerHTML=`${m}<span class="unit">kcal</span>`;
   document.getElementById('display-method').textContent=mObj.method||'—';
@@ -675,33 +721,38 @@ function displayPlan(){
   }else{
     sfPanel.classList.remove('visible');
     const wrap=document.getElementById('prog-bar-wrap');
-    if(tf>0){
+    if(guideCtx){
       wrap.style.display='block';
-      const sc0a=computeInitialStartCalories().startCalories,target=Math.round(tf*1.05);
-      const pct=Math.min(100,Math.max(0,((sc-sc0a)/(target-sc0a||1))*100));
+      const sc0a=computeInitialStartCalories().startCalories,targetMin=guideCtx.absolute.normal[0],targetMax=guideCtx.absolute.normal[1];
+      const pct=getGuideProgressPct(sc,sc0a,targetMin);
       document.getElementById('pb-fill').className='pb-fill';document.getElementById('pb-fill').style.width=pct+'%';
-      document.getElementById('pb-label').textContent='Progressione verso prontezza fisica (TDEE×1.05)';
-      document.getElementById('pb-val-text').textContent=`${sc} kcal → target: ${target} kcal`;
-      document.getElementById('pb-note').textContent=pct>=100?'✓ Prontezza fisica raggiunta':`${Math.round(pct)}%`;
+      document.getElementById('pb-label').textContent='Progressione verso range Normale guida';
+      document.getElementById('pb-val-text').textContent=`${sc} kcal → normale: ${targetMin}–${targetMax} kcal`;
+      document.getElementById('pb-note').textContent=sc>=targetMin?(sc<=targetMax?'✓ Range Normale raggiunto':'✓ Oltre il range Normale'):`${Math.round(pct)}%`;
     }else wrap.style.display='none';
   }
-  if(lbm&&m>0)document.getElementById('ref-table-calc').textContent=`Il tuo TDEE stimato è ${m} kcal per LBM di ${round(lbm,1)} kg → ${round(m/lbm,1)} kcal/kg LBM.`;
+  if(guideCtx){
+    const zoneText=guideCtx.currentZone.label!=='—'?` · attuale: ${guideCtx.calsPerKg} kcal/kg LBM (${guideCtx.currentZone.label})`:'';
+    const ageNote=guideCtx.ageBand.outOfRange?' · età fuori tabella: uso fascia più vicina':'';
+    document.getElementById('ref-table-calc').textContent=`LBM ${guideCtx.lbm} kg · ${guideCtx.ageBand.rangeLabel} · ${guideCtx.afBand.label} → range Normale ${formatKcalRange(guideCtx.absolute.normal)} kcal (${guideCtx.perKg.normal[0]}–${guideCtx.perKg.normal[1]} kcal/kg LBM)${zoneText}${ageNote}.`;
+  }else if(lbm&&m>0)document.getElementById('ref-table-calc').textContent=`Il tuo TDEE stimato è ${m} kcal per LBM di ${round(lbm,1)} kg → ${round(m/lbm,1)} kcal/kg LBM.`;
 }
 
 function displayCurrentCalories(){
   const sc=getActiveCalories();
   document.getElementById('display-current-calories').textContent=sc||'—';
+  const guideCtx=getGuideMaintenanceContext(sc);
   const tf=computeFormulaTDEE().tdee||0;
   if(isSF()){
     const tLabel=sfPhase===1?`Target BF%: ${sfTargetBF}%`:sfPhase===2?`Mantenimento formula`:`Surplus: ${Math.round(tf*1.07)} kcal`;
     document.getElementById('target-range-label').textContent='Obiettivo fase';
     document.getElementById('display-target-range').textContent=tLabel;
     document.getElementById('display-target-method').textContent=`Skinny Fat — ${SF_PHASES[sfPhase]?.label}`;
-  }else if(tf>0){
-    document.getElementById('target-range-label').textContent='Range obiettivo finale (TDEE×1.05 → ×1.10)';
-    document.getElementById('display-target-range').textContent=`${Math.round(tf*1.05)} – ${Math.round(tf*1.10)}`;
-    document.getElementById('display-target-method').textContent=`Basato su: ${computeFormulaTDEE().method}`;
-  }else{document.getElementById('display-target-range').textContent='—';document.getElementById('display-target-method').textContent='Formula non disponibile';}
+  }else if(guideCtx){
+    document.getElementById('target-range-label').textContent='Range Normale guida';
+    document.getElementById('display-target-range').textContent=formatKcalRange(guideCtx.absolute.normal);
+    document.getElementById('display-target-method').textContent=`${guideCtx.ageBand.rangeLabel} · ${guideCtx.afBand.label} · ${guideCtx.perKg.normal[0]}–${guideCtx.perKg.normal[1]} kcal/kg LBM`;
+  }else{document.getElementById('display-target-range').textContent='—';document.getElementById('display-target-method').textContent='Tabella guida non disponibile';}
   const wp=toNum(weeksPassed)||1;
   let hint='';
   if(isSF()){
@@ -717,25 +768,29 @@ function displayCurrentCalories(){
     let stageHint='';
     if(wp<4) stageHint='Fase iniziale — metabolismo ancora in adattamento. Monitora settimanalmente.';
     else if(wp<8) stageHint='Fase intermedia — controlla composizione e aderenza al piano.';
-    else if(wp<12) stageHint='Fase avanzata — verifica la prontezza fisica (TDEE×1.05 raggiunto?).';
-    else stageHint=`${wp} settimane completate — valuta i criteri di uscita dalla Reverse Diet (guida sez.9).`;
+    else if(wp<12) stageHint='Fase avanzata — verifica l’ingresso nel range Normale guida.';
+    else stageHint=`${wp} settimane completate — valuta i criteri di uscita dalla Reverse Diet sulla tabella guida.`;
     // Promemoria durata proporzionale
     const durationNote=wp>=12?` · Durata consigliata: ≥ settimane di deficit precedente.`:'';
     hint=`W${wp} · ${stageHint}${durationNote}`;
   }
   document.getElementById('weeks-hint').textContent=hint;
-  if(!isSF())checkEndReverse(sc,tf);
+  if(!isSF())checkEndReverse(sc);
   else checkSFPhaseTransition(sc,tf);
   populatePrevWeekRef();
 }
 
-function checkEndReverse(sc,tf){
+function checkEndReverse(sc){
   const el=document.getElementById('end-reverse-ready'),txt=document.getElementById('end-reverse-text');
   const wp=toNum(weeksPassed)||1;
-  if(tf>0&&sc>=Math.round(tf*1.05)){
-    txt.innerHTML=`Calorie attive (<strong>${sc} kcal</strong>) ≥ TDEE×1.05 (<strong>${Math.round(tf*1.05)} kcal</strong>) — prontezza fisica raggiunta (guida sez.9).<br>
+  const guideCtx=getGuideMaintenanceContext(sc);
+  if(guideCtx&&sc>=guideCtx.absolute.normal[0]){
+    const normalRange=formatKcalRange(guideCtx.absolute.normal);
+    const zoneLabel=sc<=guideCtx.absolute.normal[1]?'dentro':'sopra';
+    const ageNote=guideCtx.ageBand.outOfRange?'<br><span style="color:var(--muted)">Età fuori range tabella: uso la fascia più vicina disponibile.</span>':'';
+    txt.innerHTML=`Calorie attive (<strong>${sc} kcal</strong>) ${zoneLabel} il range Normale guida (<strong>${normalRange} kcal</strong>) per <strong>${guideCtx.ageBand.rangeLabel}</strong> e <strong>${guideCtx.afBand.label}</strong> — prontezza fisica raggiunta.<br>
     Per il Cut: riduci di almeno −20% → <strong>${Math.round(sc*0.80)} kcal</strong>. Mantieni invariati volume allenamento e passi giornalieri.<br>
-    <span style="color:var(--muted)">Settimane completate: ${wp}. La guida consiglia una durata della Reverse ≥ alle settimane di deficit precedente.</span>`;
+    <span style="color:var(--muted)">Settimane completate: ${wp}. La guida consiglia una durata della Reverse ≥ alle settimane di deficit precedente.</span>${ageNote}`;
     el.style.display='block';
   }else el.style.display='none';
   document.getElementById('sf-transition-box').classList.remove('show');
@@ -746,9 +801,10 @@ function checkSFPhaseTransition(sc,tf){
   const box=document.getElementById('sf-transition-box'),title=document.getElementById('sft-title'),txt=document.getElementById('sft-text');
   const bfN=toNum(checkBodyFat)||toNum(bodyFat)||0;
   const wp=toNum(weeksPassed)||1;
+  const maintenance=estimateMaintenance().maintenance||tf||0;
   if(sfPhase===1&&bfN>0&&bfN<=sfTargetBF){
     box.classList.add('show');title.textContent='✓ PRONTO PER FASE 2 — STABILIZZAZIONE';
-    txt.innerHTML=`BF% attuale (${bfN}%) ha raggiunto il target (${sfTargetBF}%) dopo ${wp} settimane.<br><strong>Passo successivo:</strong> seleziona <em>Fase 2 — Reverse Diet</em> nella configurazione. Aumenta gradualmente le calorie fino al mantenimento (${tf||m} kcal) nell'arco di 4–8 settimane.`;
+    txt.innerHTML=`BF% attuale (${bfN}%) ha raggiunto il target (${sfTargetBF}%) dopo ${wp} settimane.<br><strong>Passo successivo:</strong> seleziona <em>Fase 2 — Reverse Diet</em> nella configurazione. Aumenta gradualmente le calorie fino al mantenimento (${maintenance} kcal) nell'arco di 4–8 settimane.`;
   }else if(sfPhase===2&&tf>0&&sc>=tf){
     box.classList.add('show');title.textContent='✓ PRONTO PER FASE 3 — CLEAN BULK';
     txt.innerHTML=`Calorie attive (${sc} kcal) hanno raggiunto il mantenimento formula (${tf} kcal).<br><strong>Passo successivo:</strong> seleziona <em>Fase 3 — Clean Bulk</em>. Mantieni stabili 1–2 settimane, poi applica un surplus leggero (+5–10%). Focus su sovraccarico progressivo.`;
@@ -759,16 +815,17 @@ function populatePrevWeekRef(){
   const ref=document.getElementById('prev-week-ref');
   if(storico.length===0){ref.style.display='none';return;}
   const last=storico[storico.length-1];ref.style.display='block';
-  document.getElementById('prev-weight').textContent=(last.weeklyAvgWeight||last.weight||'—')+' kg';
-  document.getElementById('prev-kcal').textContent=(last.currentCalories||last.plan?.startCalories||'—')+' kcal';
-  document.getElementById('prev-bf-val').textContent=(last.checkBodyFat||last.bodyFat||'—')+'%';
-  document.getElementById('prev-waist-val').textContent=(last.weeklyMeasureWaist||last.measureWaist||'—')+' cm';
+  document.getElementById('prev-weight').textContent=(last.weeklyAvgWeight||'—')+' kg';
+  document.getElementById('prev-kcal').textContent=(last.currentCalories||'—')+' kcal';
+  document.getElementById('prev-bf-val').textContent=(last.checkBodyFat||'—')+'%';
+  document.getElementById('prev-waist-val').textContent=(last.weeklyMeasureWaist||'—')+' cm';
 }
 
 // ── ACCEPT SUGGESTION ─────────────────────────────────
 function acceptSuggestion(newKcal){
-  currentCalories=newKcal;displayPlan();displayCurrentCalories();
-  showToast(`✓ Piano aggiornato: ${newKcal} kcal`);openSec('sec-plan');
+  if(!saveWeeklyEntry({caloriesOverride:newKcal,toastMessage:null,syncCurrentCalories:true}))return;
+  displayPlan();displayCurrentCalories();
+  showToast(`✓ Check salvato e piano aggiornato: ${newKcal} kcal`);openSec('sec-plan');
   document.getElementById('weekly-suggestion').style.display='none';
 }
 
@@ -805,12 +862,12 @@ function computeWeeklyCheck(prevCal,avgW,bfVal=null,measures={}){
   // Segnale combinato: vita è primario. BF% solo se anche la vita cresce, o se non c'è dato vita.
   const compositionWorsened = wUp || (bfUp && wkWaist==null);
 
-  const r={allowedGainKg:round(allowedGain,3),actualGainKg:actualGain,decision:'hold',suggestedCalories:prevCal,note:'',weeklyBF:bfVal,weeklyMeasures:measures,options:null,levels:null,prevWeekWeight,prevWeekWaist,prevWeekBF,isSkinnyFat:false,refWeight};
-  const tf=computeFormulaTDEE().tdee||0;
+  const guideCtx=getGuideMaintenanceContext(prevCal);
+  const r={allowedGainKg:round(allowedGain,3),actualGainKg:actualGain,decision:'hold',suggestedCalories:prevCal,note:'',weeklyBF:bfVal,weeklyMeasures:measures,options:null,guide:guideCtx,prevWeekWeight,prevWeekWaist,prevWeekBF,isSkinnyFat:false,refWeight};
 
-  if(tf>0&&prevCal>=Math.round(tf*1.10)){
+  if(guideCtx&&prevCal>=guideCtx.absolute.normal[0]){
     r.decision='finished_reverse';r.suggestedCalories=prevCal;
-    r.note='Calorie ≥ TDEE×1.10. Mantieni stabili 1–2 settimane, poi avvia il Cut con riduzione minima del 20%.';
+    r.note=`Calorie ${prevCal>guideCtx.absolute.normal[1]?'oltre':'dentro'} il range Normale guida (${formatKcalRange(guideCtx.absolute.normal)} kcal). Mantieni stabili 1–2 settimane, poi avvia il Cut con riduzione minima del 20%.`;
 
   }else if(actualGain<=allowedGain+1e-9){
     // FIX #5: mostra range lo/hi come due opzioni, non solo il midpoint
@@ -841,16 +898,6 @@ function computeWeeklyCheck(prevCal,avgW,bfVal=null,measures={}){
     const signal=wUp&&bfUp?'Vita E BF% in aumento':wUp?'Vita in aumento (segnale primario)':'BF% in aumento';
     r.note=`Peso oltre limite e ${signal}. Mantieni calorie stabili 1–2 settimane (guida sez.7). Non ridurre — riprendi ad aumentare quando il guadagno rientra nei limiti.`;
   }
-  // Levels
-  const uKg=toNum(avgW)||toNum(weight)||0;
-  if(uKg>0){
-    const lvl={base:{male:[31,34],female:[28,31]},intermediate:{male:[35,37],female:[32,34]},advanced:{male:[38,9999],female:[36,9999]}};
-    const gk=sex==='male'?'male':'female';
-    const lk={base:[Math.round(lvl.base[gk][0]*uKg),Math.round(lvl.base[gk][1]*uKg)],intermediate:[Math.round(lvl.intermediate[gk][0]*uKg),Math.round(lvl.intermediate[gk][1]*uKg)],advanced:[Math.round(lvl.advanced[gk][0]*uKg),Infinity]};
-    const cpk=round(prevCal/uKg,2);let cur='Sotto base';
-    if(cpk>=lvl.advanced[gk][0])cur='Avanzato';else if(cpk>=lvl.intermediate[gk][0])cur='Intermedio';else if(cpk>=lvl.base[gk][0])cur='Base';
-    r.levels={levelKcal:lk,currentLevel:cur,calsPerKg:cpk};
-  }
   return r;
 }
 
@@ -862,7 +909,7 @@ function computeSFWeeklyCheck(prevCal,avgW,bfVal,measures){
   let prevWeekWeight=null,prevWeekWaist=null;
   if(storico.length>0){const last=storico[storico.length-1];prevWeekWeight=toNum(last.weeklyAvgWeight)||toNum(last.weight)||null;prevWeekWaist=toNum(last.weeklyMeasureWaist)||toNum(last.measureWaist)||null;}
   const tf=computeFormulaTDEE().tdee||0;
-  const r={decision:'sf',suggestedCalories:prevCal,note:'',weeklyBF:bfVal,weeklyMeasures:measures,options:null,levels:null,prevWeekWeight,prevWeekWaist,isSkinnyFat:true,sfPhase,actualChange};
+  const r={decision:'sf',suggestedCalories:prevCal,note:'',weeklyBF:bfVal,weeklyMeasures:measures,options:null,guide:null,prevWeekWeight,prevWeekWaist,isSkinnyFat:true,sfPhase,actualChange};
 
   if(sfPhase===1){
     // Cut logic: track weekly loss rate
@@ -955,7 +1002,16 @@ function displaySuggestion(sug,prevCal){
       <div class="sug-opt"><div class="so-title">— Mantieni stabili</div><div class="so-kcal">${sug.options.maintain.suggestedCalories} kcal</div><div class="so-note">${sug.options.maintain.note}</div><div style="margin-top:8px"><button class="btn btn-ghost" onclick="acceptSuggestion(${sug.options.maintain.suggestedCalories})" style="padding:7px 14px;font-size:9px">Accetta →</button></div></div>
     </div>`;
   }
-  if(sug.levels){const{levelKcal:lk,currentLevel:cur,calsPerKg:cpk}=sug.levels;const fR=r=>r[1]===Infinity?`>${r[0]}`:`${r[0]}–${r[1]}`;h+=`<div class="lvl-label">Livelli kcal/kg — attuale: ${cpk} kcal/kg (${cur})</div><div class="lvl-grid"><div class="lvl-item ${cur==='Base'?'active':''}"><div class="li-label">Base</div><div class="li-range">${fR(lk.base)} kcal</div></div><div class="lvl-item ${cur==='Intermedio'?'active':''}"><div class="li-label">Intermedio</div><div class="li-range">${fR(lk.intermediate)} kcal</div></div><div class="lvl-item ${cur==='Avanzato'?'active':''}"><div class="li-label">Avanzato</div><div class="li-range">${fR(lk.advanced)} kcal</div></div></div>`;}
+  if(sug.guide){
+    const g=sug.guide;
+    h+=`<div class="lvl-label">Tabella guida kcal/kg LBM — attuale: ${g.calsPerKg} kcal/kg LBM (${g.currentZone.label})</div>
+    <div class="sug-note" style="margin-top:-2px">${g.ageBand.rangeLabel} · ${g.afBand.label} · LBM ${g.lbm} kg</div>
+    <div class="lvl-grid">
+      <div class="lvl-item ${g.currentZone.key==='under'?'active':''}"><div class="li-label">Sotto il normale</div><div class="li-range">${g.perKg.under[0]}–${g.perKg.under[1]} kcal/kg LBM</div><div class="so-note">${formatKcalRange(g.absolute.under)} kcal</div></div>
+      <div class="lvl-item ${g.currentZone.key==='normal'?'active':''}"><div class="li-label">Normale</div><div class="li-range">${g.perKg.normal[0]}–${g.perKg.normal[1]} kcal/kg LBM</div><div class="so-note">${formatKcalRange(g.absolute.normal)} kcal</div></div>
+      <div class="lvl-item ${g.currentZone.key==='above'?'active':''}"><div class="li-label">Sopra il normale</div><div class="li-range">${g.perKg.above[0]}–${g.perKg.above[1]} kcal/kg LBM</div><div class="so-note">${formatKcalRange(g.absolute.above)} kcal</div></div>
+    </div>`;
+  }
   const bsW=toNum(measureWaist),bsH=toNum(measureHips),bsA=toNum(measureArm),bsBF2=toNum(bodyFat);
   const wm=sug.weeklyMeasures,pw=sug.prevWeekWaist;
   const dS=(v,bs,u,pv=null)=>{const vn=toNum(v);if(vn==null)return'—';let s=`${vn} ${u}`;if(bs!=null){const d=round(vn-bs,1),sg=d>0?'+':'';s+=` <span class="${d>0?'diff-pos':d<0?'diff-neg':'diff-neu'}">(${sg}${d} vs base)</span>`;}if(pv!=null){const dp=round(vn-pv,1),sg=dp>0?'+':'';s+=` <span style="font-size:9px;color:var(--muted)">[${sg}${dp} vs prev]</span>`;}return s;};
@@ -964,7 +1020,7 @@ function displaySuggestion(sug,prevCal){
   else h+='</div>';
   con.innerHTML=h;con.style.display='block';
   document.getElementById('pill-check').textContent='✓ valutato';document.getElementById('pill-check').className='pill ok';
-  checkEndReverse(prevCal,computeFormulaTDEE().tdee||0);
+  checkEndReverse(prevCal);
 }
 
 function displaySFSuggestion(sug,prevCal,con){
@@ -1021,22 +1077,108 @@ function handleDayChange(){
 }
 
 // ── STORICO ────────────────────────────────────────────
-function saveData(){
-  const entry={date:new Date().toISOString(),sex,age,height,weight,bodyFat,goal,measuredMaintenance,lifestyleFactor,exerciseFactor,proteinPerKgLBM,carbPercentOfRemaining,approachKey,tdeeMethod,measureWaist,measureHips,measureArm,weeklyAvgWeight,weeksPassed,checkBodyFat,weeklyMeasureWaist,weeklyMeasureHips,weeklyMeasureArm,dayWeights,currentCalories:getActiveCalories(),sfPhase,sfDeficitPct,sfTargetBF,plan:{startCalories:getActiveCalories()}};
-  storico.push(entry);localStorage.setItem('reverseDietStorico',JSON.stringify(storico));
-  refreshStorico();renderChart();showToast('✓ Dati salvati');
+function getBasePlanPayload(){
+  return{sex,age,height,weight,bodyFat,goal,measuredMaintenance,lifestyleFactor,exerciseFactor,proteinPerKgLBM,carbPercentOfRemaining,approachKey,tdeeMethod,measureWaist,measureHips,measureArm,sfPhase,sfDeficitPct,sfTargetBF};
 }
-function loadData(){try{const raw=localStorage.getItem('reverseDietStorico');if(!raw)return;storico=JSON.parse(raw);if(storico.length>0)restoreState(storico[storico.length-1]);}catch(e){console.error(e);}}
-function restoreState(e){
-  sex=e.sex||sex;age=e.age||age;height=e.height||height;weight=e.weight||weight;bodyFat=e.bodyFat||bodyFat;goal=e.goal||'';measuredMaintenance=e.measuredMaintenance||'';
-  lifestyleFactor=e.lifestyleFactor||lifestyleFactor;exerciseFactor=e.exerciseFactor||exerciseFactor;proteinPerKgLBM=e.proteinPerKgLBM||proteinPerKgLBM;carbPercentOfRemaining=e.carbPercentOfRemaining||carbPercentOfRemaining;
-  approachKey=e.approachKey||approachKey;tdeeMethod=e.tdeeMethod||tdeeMethod;
-  measureWaist=e.measureWaist||'';measureHips=e.measureHips||'';measureArm=e.measureArm||'';
-  weeklyAvgWeight=e.weeklyAvgWeight||'';weeksPassed=e.weeksPassed||1;checkBodyFat=e.checkBodyFat||'';
-  weeklyMeasureWaist=e.weeklyMeasureWaist||'';weeklyMeasureHips=e.weeklyMeasureHips||'';weeklyMeasureArm=e.weeklyMeasureArm||'';
-  dayWeights=e.dayWeights||['','','','','','',''];currentCalories=e.currentCalories||null;
-  sfPhase=toNum(e.sfPhase)||1;sfDeficitPct=toNum(e.sfDeficitPct)||15;sfTargetBF=toNum(e.sfTargetBF)||13;
-  syncForm();
+function getWeeklyEntryPayload(caloriesOverride=getActiveCalories()){
+  return{date:new Date().toISOString(),weeksPassed,weeklyAvgWeight,dayWeights:[...dayWeights],checkBodyFat,weeklyMeasureWaist,weeklyMeasureHips,weeklyMeasureArm,currentCalories:caloriesOverride};
+}
+function normalizeHistoryEntry(entry={}){
+  return{
+    date:entry.date||new Date().toISOString(),
+    weeksPassed:entry.weeksPassed??1,
+    weeklyAvgWeight:entry.weeklyAvgWeight??'',
+    dayWeights:Array.isArray(entry.dayWeights)&&entry.dayWeights.length===7?[...entry.dayWeights]:EMPTY_DAY_WEIGHTS(),
+    checkBodyFat:entry.checkBodyFat??'',
+    weeklyMeasureWaist:entry.weeklyMeasureWaist??'',
+    weeklyMeasureHips:entry.weeklyMeasureHips??'',
+    weeklyMeasureArm:entry.weeklyMeasureArm??'',
+    currentCalories:entry.currentCalories??entry.plan?.startCalories??null,
+  };
+}
+function extractLegacyBasePlan(legacyEntries){
+  const source=legacyEntries[legacyEntries.length-1]||legacyEntries[0]||{};
+  return{
+    sex:source.sex??sex,
+    age:source.age??age,
+    height:source.height??height,
+    weight:source.weight??weight,
+    bodyFat:source.bodyFat??bodyFat,
+    goal:source.goal??goal,
+    measuredMaintenance:source.measuredMaintenance??measuredMaintenance,
+    lifestyleFactor:source.lifestyleFactor??lifestyleFactor,
+    exerciseFactor:source.exerciseFactor??exerciseFactor,
+    proteinPerKgLBM:source.proteinPerKgLBM??proteinPerKgLBM,
+    carbPercentOfRemaining:source.carbPercentOfRemaining??carbPercentOfRemaining,
+    approachKey:source.approachKey??approachKey,
+    tdeeMethod:source.tdeeMethod??tdeeMethod,
+    measureWaist:source.measureWaist??measureWaist,
+    measureHips:source.measureHips??measureHips,
+    measureArm:source.measureArm??measureArm,
+    sfPhase:source.sfPhase??sfPhase,
+    sfDeficitPct:source.sfDeficitPct??sfDeficitPct,
+    sfTargetBF:source.sfTargetBF??sfTargetBF,
+  };
+}
+function persistBasePlan(){localStorage.setItem(STORAGE_KEYS.base,JSON.stringify(pianoBase));}
+function persistStorico(){localStorage.setItem(STORAGE_KEYS.history,JSON.stringify(storico));}
+function restoreBasePlan(plan={}){
+  sex=plan.sex??sex;age=plan.age??age;height=plan.height??height;weight=plan.weight??weight;bodyFat=plan.bodyFat??bodyFat;goal=plan.goal??goal;measuredMaintenance=plan.measuredMaintenance??measuredMaintenance;
+  lifestyleFactor=plan.lifestyleFactor??lifestyleFactor;exerciseFactor=plan.exerciseFactor??exerciseFactor;proteinPerKgLBM=plan.proteinPerKgLBM??proteinPerKgLBM;carbPercentOfRemaining=plan.carbPercentOfRemaining??carbPercentOfRemaining;
+  approachKey=plan.approachKey??approachKey;tdeeMethod=plan.tdeeMethod??tdeeMethod;
+  measureWaist=plan.measureWaist??measureWaist;measureHips=plan.measureHips??measureHips;measureArm=plan.measureArm??measureArm;
+  sfPhase=toNum(plan.sfPhase)??sfPhase;sfDeficitPct=toNum(plan.sfDeficitPct)??sfDeficitPct;sfTargetBF=toNum(plan.sfTargetBF)??sfTargetBF;
+}
+function restoreWeeklyState(entry={},opts={}){
+  const setCurrent=opts.setCurrentCalories!==false;
+  weeklyAvgWeight=entry.weeklyAvgWeight??'';weeksPassed=entry.weeksPassed??1;checkBodyFat=entry.checkBodyFat??'';
+  weeklyMeasureWaist=entry.weeklyMeasureWaist??'';weeklyMeasureHips=entry.weeklyMeasureHips??'';weeklyMeasureArm=entry.weeklyMeasureArm??'';
+  dayWeights=Array.isArray(entry.dayWeights)&&entry.dayWeights.length===7?[...entry.dayWeights]:EMPTY_DAY_WEIGHTS();
+  if(setCurrent)currentCalories=entry.currentCalories??null;
+}
+function saveBasePlan(opts={}){
+  const{toastMessage='✓ Piano base salvato'}=opts;
+  if(!validateInput())return false;
+  pianoBase=getBasePlanPayload();
+  persistBasePlan();
+  if(toastMessage)showToast(toastMessage);
+  return true;
+}
+function saveWeeklyEntry(opts={}){
+  const{caloriesOverride=getActiveCalories(),toastMessage='✓ Check salvato',syncCurrentCalories=true}=opts;
+  if(!saveBasePlan({toastMessage:null}))return false;
+  if(!validateWeekly())return false;
+  const entry=normalizeHistoryEntry(getWeeklyEntryPayload(caloriesOverride));
+  if(syncCurrentCalories)currentCalories=entry.currentCalories;
+  storico.push(entry);
+  persistStorico();
+  refreshStorico();renderChart();displayCurrentCalories();
+  if(toastMessage)showToast(toastMessage);
+  return true;
+}
+function migrateLegacyStorage(){
+  try{
+    const raw=localStorage.getItem(STORAGE_KEYS.legacyHistory);
+    if(!raw)return false;
+    const legacy=JSON.parse(raw);
+    if(!Array.isArray(legacy)||legacy.length===0)return false;
+    pianoBase=extractLegacyBasePlan(legacy);
+    storico=legacy.map(normalizeHistoryEntry);
+    persistBasePlan();persistStorico();
+    return true;
+  }catch(e){console.error(e);return false;}
+}
+function loadData(){
+  try{
+    const baseRaw=localStorage.getItem(STORAGE_KEYS.base),historyRaw=localStorage.getItem(STORAGE_KEYS.history);
+    if(baseRaw)pianoBase=JSON.parse(baseRaw);
+    if(historyRaw){const parsed=JSON.parse(historyRaw);storico=Array.isArray(parsed)?parsed.map(normalizeHistoryEntry):[];}
+    if(!pianoBase&&!storico.length)migrateLegacyStorage();
+    if(pianoBase)restoreBasePlan(pianoBase);
+    if(storico.length>0)restoreWeeklyState(storico[storico.length-1],{setCurrentCalories:true});
+    else currentCalories=null;
+    syncForm();
+  }catch(e){console.error(e);}
 }
 function syncForm(){
   const set=(id,v)=>{const el=document.getElementById(id);if(el)el.value=v;};
@@ -1046,6 +1188,7 @@ function syncForm(){
   set('weeklyMeasureWaist',weeklyMeasureWaist);set('weeklyMeasureHips',weeklyMeasureHips);set('weeklyMeasureArm',weeklyMeasureArm);
   set('sfPhase',sfPhase);set('sfDeficitPct',sfDeficitPct);set('sfTargetBF',sfTargetBF);
   dayWeights.forEach((v,i)=>set(`day${i+1}`,v));
+  document.getElementById('days-label').textContent=`${dayWeights.map(toNum).filter(v=>v!=null).length}/7 giorni`;
   document.getElementById('carb-pct').textContent=Math.round(carbPercentOfRemaining*100);document.getElementById('fat-pct').textContent=Math.round((1-carbPercentOfRemaining)*100);
   document.getElementById('sf-config').classList.toggle('visible',approachKey==='skinny_fat');
   updateRecommended();updateHeader();
@@ -1058,18 +1201,17 @@ function refreshStorico(){
   storico.slice().reverse().forEach((e,ri)=>{
     const idx=storico.length-1-ri,prev=idx>0?storico[idx-1]:null;
     const date=new Date(e.date).toLocaleDateString('it-IT',{day:'2-digit',month:'2-digit',year:'numeric'});
-    let app=APPROACHES[e.approachKey]?.label||e.approachKey||'—';
-    if(e.approachKey==='skinny_fat')app=`SF F${e.sfPhase||1}`;
-    const eKcal=e.currentCalories||e.plan?.startCalories,pKcal=prev?(prev.currentCalories||prev.plan?.startCalories):null;
-    const eW=toNum(e.weeklyAvgWeight)||toNum(e.weight),pW=prev?(toNum(prev.weeklyAvgWeight)||toNum(prev.weight)):null;
-    const dK=pKcal&&eKcal?`<span class="${eKcal>=pKcal?'delta-up':'delta-dn'}">${eKcal>=pKcal?'+':''}${eKcal-pKcal}</span>`:'—';
-    const dW=pW&&eW?`<span class="${eW>=pW?'delta-up':'delta-dn'}">${eW>=pW?'+':''}${round(eW-pW,2)}</span>`:'—';
-    const tr=document.createElement('tr');tr.innerHTML=`<td>${date}</td><td>${eW||'—'} kg</td><td>${dW}</td><td>${eKcal||'—'}</td><td>${dK}</td><td>${app}</td><td>${e.bodyFat||'—'}%</td><td>${e.weeksPassed||'—'}</td><td><button class="lb" onclick="loadEntry(${idx})">Carica</button></td>`;tbody.appendChild(tr);
+    const app=getApproachLabel(pianoBase?.approachKey||approachKey,pianoBase?.sfPhase||sfPhase);
+    const eKcal=e.currentCalories??null,pKcal=prev?prev.currentCalories??null:null;
+    const eW=toNum(e.weeklyAvgWeight),pW=prev?toNum(prev.weeklyAvgWeight):null;
+    const dK=pKcal!=null&&eKcal!=null?`<span class="${eKcal>=pKcal?'delta-up':'delta-dn'}">${eKcal>=pKcal?'+':''}${eKcal-pKcal}</span>`:'—';
+    const dW=pW!=null&&eW!=null?`<span class="${eW>=pW?'delta-up':'delta-dn'}">${eW>=pW?'+':''}${round(eW-pW,2)}</span>`:'—';
+    const tr=document.createElement('tr');tr.innerHTML=`<td>${date}</td><td>${eW||'—'} kg</td><td>${dW}</td><td>${eKcal||'—'}</td><td>${dK}</td><td>${app}</td><td>${e.checkBodyFat||'—'}%</td><td>${e.weeksPassed||'—'}</td><td><button class="lb" onclick="loadEntry(${idx})">Carica</button></td>`;tbody.appendChild(tr);
   });
   document.getElementById('pill-storico').textContent=`${storico.length} entr${storico.length===1?'y':'ies'}`;document.getElementById('pill-storico').className='pill ok';
 }
-function loadEntry(idx){restoreState(storico[idx]);showToast('Entry caricata');openSec('sec-input');if(validateInput())displayPlan();displayCurrentCalories();}
-function exportData(){const b=new Blob([JSON.stringify(storico,null,2)],{type:'application/json'});const a=document.createElement('a');a.href=URL.createObjectURL(b);a.download=`diet-plan-${new Date().toISOString().slice(0,10)}.json`;a.click();URL.revokeObjectURL(a.href);showToast('✓ Esportazione completata');}
+function loadEntry(idx){restoreWeeklyState(storico[idx],{setCurrentCalories:true});syncForm();showToast('Check caricato dallo storico');openSec('sec-check');if(validateInput())displayPlan();displayCurrentCalories();}
+function exportData(){const payload={pianoBase:pianoBase||getBasePlanPayload(),storico};const b=new Blob([JSON.stringify(payload,null,2)],{type:'application/json'});const a=document.createElement('a');a.href=URL.createObjectURL(b);a.download=`diet-plan-${new Date().toISOString().slice(0,10)}.json`;a.click();URL.revokeObjectURL(a.href);showToast('✓ Esportazione completata');}
 
 // ── CHART ─────────────────────────────────────────────
 function linReg(pts){const n=pts.length;if(n<2)return null;const sx=pts.reduce((a,p)=>a+p.x,0),sy=pts.reduce((a,p)=>a+p.y,0),sxy=pts.reduce((a,p)=>a+p.x*p.y,0),sx2=pts.reduce((a,p)=>a+p.x*p.x,0),d=n*sx2-sx*sx;if(d===0)return null;const m=(n*sxy-sx*sy)/d,b=(sy-m*sx)/n;return{at:x=>m*x+b};}
@@ -1081,8 +1223,8 @@ function renderChart(){
   canvas.width=W*dpr;canvas.height=H*dpr;canvas.style.width=W+'px';canvas.style.height=H+'px';
   const ctx=canvas.getContext('2d');ctx.scale(dpr,dpr);ctx.clearRect(0,0,W,H);
   const PAD={t:18,r:14,b:28,l:52},cW=W-PAD.l-PAD.r,cH=H-PAD.t-PAD.b;
-  const weights=storico.map(e=>toNum(e.weeklyAvgWeight)||toNum(e.weight)||null);
-  const kcals=storico.map(e=>e.currentCalories||e.plan?.startCalories||null);
+  const weights=storico.map(e=>toNum(e.weeklyAvgWeight)||null);
+  const kcals=storico.map(e=>e.currentCalories??null);
   const vW=weights.filter(x=>x!=null),vK=kcals.filter(x=>x!=null);
   if(!vW.length&&!vK.length)return;
   const minW=Math.min(...vW)*0.985,maxW=Math.max(...vW)*1.015,minK=Math.min(...vK)*0.97,maxK=Math.max(...vK)*1.03;
@@ -1128,18 +1270,19 @@ document.addEventListener('DOMContentLoaded',()=>{
   document.getElementById('carbPercentOfRemaining').addEventListener('input',e=>{carbPercentOfRemaining=Number(e.target.value);document.getElementById('carb-pct').textContent=Math.round(carbPercentOfRemaining*100);document.getElementById('fat-pct').textContent=Math.round((1-carbPercentOfRemaining)*100);});
   document.getElementById('calc-plan').addEventListener('click',()=>{if(!validateInput())return;currentCalories=null;displayPlan();openSec('sec-plan');});
   document.getElementById('reset-plan-btn').addEventListener('click',()=>{if(!confirm('Azzerare le calorie tracciate?'))return;currentCalories=null;if(validateInput())displayPlan();showToast('Calorie tracciate azzerate');});
-  document.getElementById('go-to-check').addEventListener('click',()=>{displayCurrentCalories();openSec('sec-check');});
+  document.getElementById('go-to-check').addEventListener('click',()=>{if(!saveBasePlan({toastMessage:'✓ Piano base salvato'}))return;displayCurrentCalories();openSec('sec-check');});
   document.getElementById('back-to-input').addEventListener('click',()=>openSec('sec-input'));
-  document.getElementById('save-plan').addEventListener('click',saveData);
+  document.getElementById('save-plan').addEventListener('click',()=>saveBasePlan({toastMessage:'✓ Piano base salvato'}));
   ['day1','day2','day3','day4','day5','day6','day7'].forEach(id=>document.getElementById(id).addEventListener('input',handleDayChange));
-  document.getElementById('clear-days').addEventListener('click',()=>{dayWeights=['','','','','','',''];['day1','day2','day3','day4','day5','day6','day7'].forEach(id=>document.getElementById(id).value='');weeklyAvgWeight='';document.getElementById('weeklyAvgWeight').value='';document.getElementById('days-label').textContent='0/7 giorni';});
+  document.getElementById('clear-days').addEventListener('click',()=>{dayWeights=EMPTY_DAY_WEIGHTS();['day1','day2','day3','day4','day5','day6','day7'].forEach(id=>document.getElementById(id).value='');weeklyAvgWeight='';document.getElementById('weeklyAvgWeight').value='';document.getElementById('days-label').textContent='0/7 giorni';});
   bind('weeklyAvgWeight',e=>weeklyAvgWeight=e.target.value);bind('checkBodyFat',e=>checkBodyFat=e.target.value);bind('weeksPassed',e=>{weeksPassed=e.target.value;displayCurrentCalories();});
   bind('weeklyMeasureWaist',e=>weeklyMeasureWaist=e.target.value);bind('weeklyMeasureHips',e=>weeklyMeasureHips=e.target.value);bind('weeklyMeasureArm',e=>weeklyMeasureArm=e.target.value);
   document.getElementById('evaluate-check').addEventListener('click',()=>{if(!validateWeekly())return;const measures={waist:weeklyMeasureWaist,hips:weeklyMeasureHips,arm:weeklyMeasureArm};const prevCal=getActiveCalories();displaySuggestion(computeWeeklyCheck(prevCal,toNum(weeklyAvgWeight),toNum(checkBodyFat),measures),prevCal);});
-  document.getElementById('save-check').addEventListener('click',saveData);
+  document.getElementById('save-check').addEventListener('click',()=>saveWeeklyEntry({toastMessage:'✓ Check salvato manualmente'}));
   document.getElementById('export-btn').addEventListener('click',exportData);
-  document.getElementById('clear-storico').addEventListener('click',()=>{if(!confirm('Cancellare tutto lo storico? Irreversibile.'))return;storico=[];localStorage.removeItem('reverseDietStorico');refreshStorico();renderChart();showToast('Storico cancellato');});
-  if(storico.length>0){document.getElementById('sec-input').classList.remove('open');document.getElementById('tbtn-input').textContent='+';openSec('sec-check',false);if(validateInput())displayPlan();displayCurrentCalories();}
+  document.getElementById('clear-storico').addEventListener('click',()=>{if(!confirm('Cancellare tutto lo storico? Irreversibile.'))return;storico=[];currentCalories=null;localStorage.removeItem(STORAGE_KEYS.history);localStorage.removeItem(STORAGE_KEYS.legacyHistory);refreshStorico();renderChart();displayCurrentCalories();showToast('Storico cancellato');});
+  if(pianoBase||storico.length>0){if(validateInput())displayPlan();displayCurrentCalories();}
+  if(storico.length>0){document.getElementById('sec-input').classList.remove('open');document.getElementById('tbtn-input').textContent='+';openSec('sec-check',false);}
 });
 </script>
 </body>
