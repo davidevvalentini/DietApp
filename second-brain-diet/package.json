@@ -1,0 +1,22 @@
+{
+  "name": "second-brain-diet",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Modulo Diet Plan del Second Brain: protocolli Cut, Reverse Diet, Skinny Fat, Bulk e Mantenimento con ciclo guidato tra le fasi",
+  "scripts": {
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "lucide-react": "^0.574.0",
+    "next": "16.1.6",
+    "react": "19.2.3",
+    "react-dom": "19.2.3"
+  },
+  "devDependencies": {
+    "@types/node": "^20",
+    "@types/react": "^19",
+    "typescript": "^5",
+    "vitest": "^5.0.0"
+  }
+}
